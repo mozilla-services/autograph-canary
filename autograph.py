@@ -82,7 +82,7 @@ def run_tests(event, lambda_context, native = False):
 
     # Spawn a worker.
     profile_dir = __create_tempdir(prefix = "profile_")
-    script_path = os.path.abspath(os.path.pardir)
+    script_path = os.path.abspath("content_signature_test.js")
 
     w = xw.XPCShellWorker(app,
                           script = script_path,
