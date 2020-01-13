@@ -74,31 +74,57 @@ def sync_send(worker, command):
         else:
             break
 
-
-
 def run_tests(event, lambda_context, native = False):
     temp_dir = __create_tempdir()
     app = get_app(temp_dir, native)
 
     # Spawn a worker.
-    profile_dir = __create_tempdir(prefix = "profile_")
-    script_path = os.path.abspath("content_signature_test.js")
 
-    w = xw.XPCShellWorker(app,
-                          script = script_path,
-                          profile = profile_dir)
-    w.spawn()
-
-    response = sync_send(w, xw.Command("run_test", id = 1))
-
-    w.terminate()
-
-    res_dict = response.as_dict()
-    if res_dict["success"]:
-        sys.exit(0)
+    # TODO: MDG check args for user specified test path.
+    # TODO: MDG get a path relative to *this script* for the default test path
+    test_path = os.path.abspath("tests")
+    
+    script_files = []
+    if os.path.isdir(test_path):
+        children = os.listdir(test_path)
+        script_files = [
+                            os.path.abspath(p) for p in filter(
+                                os.path.isfile,
+                                [
+                                    os.path.join(test_path, child) for child in children
+                                ])
+                        ]
     else:
-        sys.exit(1)
+        script_files = [test_path]
+
+    # Unless a test fails, we want to exit with a non-error result
+    exit_code = 0
+
+    for script_path in script_files:
+        profile_dir = __create_tempdir(prefix = "profile_")
+        w = xw.XPCShellWorker(app,
+                            script = script_path,
+                            profile = profile_dir)
+        w.spawn()
+        info_response = sync_send(w, xw.Command("get_worker_info", id = 1))
+        response = sync_send(w, xw.Command("run_test", id = 2))
+        w.terminate()
+
+        res_dict = response.as_dict()
+
+        # If a test has failed, exit with error status
+        if res_dict["success"]:
+            pass
+        else:
+            print("FAIL: %s executed with result %s" % (script_path, res_dict["success"]))
+            print(res_dict)
+            print("Worker info:")
+            print(info_response.as_dict())
+            exit_code = 1
+
+    if 0 != exit_code:
+        sys.exit(exit_code)
 
 if __name__ == "__main__":
     # hack together a way to force run from a main program
-    run_tests(None, None, True)
+    exit_code = run_tests(None, None, True)
