@@ -73,6 +73,7 @@ def sync_send(worker, command):
             time.sleep(0.1)
         else:
             break
+    raise Exception("Message timed out")
 
 def run_tests(event, lambda_context, native = False):
     temp_dir = __create_tempdir()
