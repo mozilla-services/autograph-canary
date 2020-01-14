@@ -99,7 +99,7 @@ def run_tests(event, lambda_context, native = False):
         script_files = [test_path]
 
     # Unless a test fails, we want to exit with a non-error result
-    exit_code = 0
+    failure_seen = False
 
     for script_path in script_files:
         profile_dir = __create_tempdir(prefix = "profile_")
@@ -108,7 +108,7 @@ def run_tests(event, lambda_context, native = False):
                             profile = profile_dir)
         w.spawn()
         info_response = sync_send(w, xw.Command("get_worker_info", id = 1))
-        response = sync_send(w, xw.Command("run_test", id = 2))
+        response = sync_send(w, xw.Command(mode = "run_test", id = 2, env = lambda_context['env']))
         w.terminate()
 
         res_dict = response.as_dict()
@@ -121,11 +121,18 @@ def run_tests(event, lambda_context, native = False):
             print(res_dict)
             print("Worker info:")
             print(info_response.as_dict())
-            exit_code = 1
+            failure_seen = True
 
-    if 0 != exit_code:
-        sys.exit(exit_code)
+    if not failure_seen:
+        logger.info("Tests passed successfully")
+    else:
+        sys.exit(1)
 
 if __name__ == "__main__":
-    # hack together a way to force run from a main program
-    exit_code = run_tests(None, None, True)
+    # simulate the lambda when run from a main program
+    run_tests(event = None, lambda_context = {
+        "env" : {
+            "signed_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
+            "unsigned_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi"
+        }
+    }, native = True)
