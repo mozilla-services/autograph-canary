@@ -1,6 +1,6 @@
 # Writing Tests
 
-Autograph monitor tests run inside [XPCShell]:https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Language_bindings/XPConnect/xpcshell. They are a little different to [XPCShell tests]:https://developer.mozilla.org/en-US/docs/Mozilla/QA/Writing_xpcshell-based_unit_tests you may have seen before in
+Autograph monitor tests run inside [XPCShell](https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XPCOM/Language_bindings/XPConnect/xpcshell). They are a little different to [XPCShell tests](https://developer.mozilla.org/en-US/docs/Mozilla/QA/Writing_xpcshell-based_unit_tests) you may have seen before in
 some important ways:
 - There is no xpcshell.ini and special filenames(e.g. starting test_) are not needed. Any regular file in the tests directory will be executed
 - You should not assume that any of the special configuration options or flags needed for regular XPCShell tests are set.
