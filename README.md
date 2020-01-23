@@ -21,5 +21,6 @@ There are a few settings you need to think about when configuring an autograph-c
 Individual tests will need specific environment variables to be set.
 
 Variable | Description | Used By
+---------|-------------|--------
 signed_XPI | The URL of a signed XPI for addon signature testing. A signed XPI is needed to ensure that signatures verify correctly and signed addons are correctly installed. | addon_signature_test.js
 unsigned_XPI | The URL of an unsigned XPI for addon signature testing. An unsigned XPI is needed to check that unsigned addons are appropriately rejected by Firefox. | addon_signature_test.js
