@@ -14,7 +14,7 @@ TODO
 
 ## AWS lambda
 There are a few settings you need to think about when configuring an autograph-canary lamdba:
-1. Memory. The lambda will download, extract and execute a full build of Firefox. Firefox more memory than an AWS Lambda is allocated by default. The lambda with a current (early 2020) version of Firefox runs happily in 1024MB.
+1. Memory. The lambda will download, extract and execute a full build of Firefox. Firefox uses more memory than an AWS Lambda is allocated by default. The lambda with a current (early 2020) version of Firefox runs happily in 1024MB.
 2. Environment. The test runner itself does not rely on any specific environment to run - but the tests do. Test configuration is performed through the environment that's passed through from the lambda_context. Inspect the table below on the variables expected by the various tests and ensure these are set appropriately in your deployment:
 
 ### Environment Varables
