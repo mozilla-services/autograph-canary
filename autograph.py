@@ -84,7 +84,7 @@ def run_tests(event, lambda_context, native = False):
     # TODO: MDG check args for user specified test path.
     # TODO: MDG get a path relative to *this script* for the default test path
     test_path = os.path.abspath("tests")
-    
+
     script_files = []
     if os.path.isdir(test_path):
         children = os.listdir(test_path)
@@ -127,6 +127,9 @@ def run_tests(event, lambda_context, native = False):
         logger.info("Tests passed successfully")
     else:
         sys.exit(1)
+
+def autograph_canary_monitor(event, context):
+    run_tests(event, context, native = True)
 
 if __name__ == "__main__":
     # simulate the lambda when run from a main program
