@@ -16,6 +16,13 @@ Cu.importGlobalProperties(["fetch"]);
 const { Utils } = ChromeUtils.import("resource://services-settings/Utils.jsm");
 
 var run_test = async function(args, response_cb) {
+    // override prefs if environment is set
+    let autoEnv = args["env"]["autograph_env"];
+    if ("stage" === autoEnv) {
+        _Services.prefs.setCharPref("services.settings.server", "https://settings.stage.mozaws.net/v1");
+        _Services.prefs.setCharPref("security.content.signature.root_hash", "DB:74:CE:58:E4:F9:D0:9E:E0:42:36:BE:6C:C5:C4:F6:6A:E7:74:7D:C0:21:42:7A:03:BC:2F:57:0C:8B:9B:90");
+    }
+
     let SETTINGS_SERVER = _Services.prefs.getCharPref("services.settings.server");
     let BUCKET = "security-state";
     let COLLECTION = "onecrl";
