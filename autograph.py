@@ -79,6 +79,13 @@ def run_tests(event, lambda_context, native = False):
     temp_dir = __create_tempdir()
     app = get_app(temp_dir, native)
 
+    env = lambda_context.get("env")
+    if None != env:
+        level = env.get("CANARY_LOG_LEVEL")
+        if None != level:
+            coloredlogs.install(level=level)
+
+
     # Spawn a worker.
 
     # TODO: MDG check args for user specified test path.
@@ -108,7 +115,7 @@ def run_tests(event, lambda_context, native = False):
                             profile = profile_dir)
         w.spawn()
         info_response = sync_send(w, xw.Command("get_worker_info", id = 1))
-        response = sync_send(w, xw.Command(mode = "run_test", id = 2, env = lambda_context['env']))
+        response = sync_send(w, xw.Command(mode = "run_test", id = 2, env = env))
         w.terminate()
 
         res_dict = response.as_dict()
