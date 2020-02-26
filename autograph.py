@@ -26,7 +26,6 @@ logging.Formatter.converter = time.gmtime
 logger = logging.getLogger(__name__)
 coloredlogs.DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s"
 coloredlogs.install(level="INFO")
-#coloredlogs.install(level='DEBUG')
 
 # TODO: MDG - Move create_tempdir to a helper module
 def __create_tempdir(prefix = "canary_"):
@@ -79,12 +78,20 @@ def run_tests(event, lambda_context, native = False):
     temp_dir = __create_tempdir()
     app = get_app(temp_dir, native)
 
-    env = lambda_context.get("env")
+    env = None
+    try:
+        env = lambda_context['env']
+    except KeyError:
+        pass
+
     if None != env:
-        level = env.get("CANARY_LOG_LEVEL")
+        level = None
+        try:
+            level = env["CANARY_LOG_LEVEL"]
+        except KeyError:
+            pass
         if None != level:
             coloredlogs.install(level=level)
-
 
     # Spawn a worker.
 
