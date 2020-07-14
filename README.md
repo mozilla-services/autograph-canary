@@ -3,7 +3,7 @@ An AWS lambda for running Firefox / Autograph integration tests. This exercises 
 
 # Usage:
 ## Command line
-To run the default set of autograph-canary tests, ensure you have tls-canary installed correctly (e.g. via `pip install tls-canary`), then:
+To run the default set of autograph-canary tests, ensure you have tls-canary installed correctly (e.g. via `pip install tlscanary`), then:
 
 ```bash
 autograph.py
