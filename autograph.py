@@ -129,13 +129,14 @@ def run_tests(event, lambda_context, native = False):
 
         # If a test has failed, exit with error status
         if res_dict["success"]:
-            pass
+            print("SUCCESS: %s executed with result %s" % (script_path, res_dict["success"]))
         else:
             print("FAIL: %s executed with result %s" % (script_path, res_dict["success"]))
-            print(res_dict)
-            print("Worker info:")
-            print(info_response.as_dict())
             failure_seen = True
+
+        print(res_dict)
+        print("Worker info:")
+        print(info_response.as_dict())
 
     if not failure_seen:
         logger.info("Tests passed successfully")
