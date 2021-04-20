@@ -17,5 +17,9 @@ while test "true" != "$(docker inspect -f {{.State.Running}} autograph-canary-la
 done
 
 # exec in containers to workaround https://circleci.com/docs/2.0/building-docker-images/#accessing-services
-docker-compose exec emulator "/usr/local/bin/test_canary.sh"
+docker-compose exec emulator "/usr/local/bin/run_canary.sh"
+
+# parse logs because RIE doesn't block on lambda execution and
+# there's on obvious way to fetch the logs locally
 docker-compose logs emulator
+test "$(docker-compose logs --no-log-prefix emulator | grep -q 'exited with error:' && echo -n $?)" != "0"
