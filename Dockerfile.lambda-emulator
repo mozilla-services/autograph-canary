@@ -12,6 +12,10 @@ RUN apt update \
     && \
     chmod +x /usr/local/bin/aws-lambda-rie
 
+# add the integration test script to run in CI
+ADD bin/test_canary.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/test_canary.sh
+
 # set ENTRYPOINT and CMD to override whatever autograph-canary set
 ENTRYPOINT ["/usr/local/bin/aws-lambda-rie"]
 CMD ["/usr/local/bin/python", "-m", "awslambdaric", "autograph.autograph_canary_monitor"]
