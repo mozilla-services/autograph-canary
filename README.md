@@ -1,5 +1,7 @@
 # autograph-canary
 
+[![CircleCI](https://circleci.com/gh/mozilla-services/autograph-canary/tree/main.svg?style=svg)](https://circleci.com/gh/mozilla-services/autograph-canary/tree/main)
+
 An AWS lambda for running Firefox / Autograph integration tests. This
 exercises the actual Firefox client code via XPConnect, making use of
 the TLS-Canary tooling.
