@@ -1,0 +1,25 @@
+version: "3"
+volumes:
+  tmpdir:
+services:
+  canary:
+    container_name: autograph-canary
+    image: autograph-canary
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - CANARY_LOG_LEVEL=debug
+    volumes:
+      - tmpdir:/tmp/
+
+  emulator:
+    container_name: autograph-canary-lambda-emulator
+    image: autograph-canary-lambda-emulator
+    build:
+      context: .
+      dockerfile: Dockerfile.lambda-emulator
+    volumes:
+      - tmpdir:/tmp/
+    ports:
+      - "9000:8080"

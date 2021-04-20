@@ -1,3 +1,4 @@
-coloredlogs
-requests
-../tls-canary
+awslambdaric==1.0.0
+coloredlogs==15.0
+requests==2.25.1
+tlscanary==4.0.1a2
