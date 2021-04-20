@@ -1,3 +1,3 @@
-coloredlogs
-requests
-../tls-canary
+coloredlogs==15.0
+requests==2.25.1
+tlscanary==4.0.1a2
