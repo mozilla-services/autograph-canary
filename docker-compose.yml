@@ -1,0 +1,19 @@
+version: "3"
+volumes:
+  tmpdir:
+services:
+  canary:
+    container_name: autograph-canary
+    image: autograph-canary
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - CANARY_LOG_LEVEL=debug
+    volumes:
+      - tmpdir:/tmp/
+    command:
+      [
+        "python",
+        "/app/autograph.py",
+      ]
