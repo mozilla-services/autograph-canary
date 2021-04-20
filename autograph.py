@@ -80,7 +80,7 @@ def run_tests(event, lambda_context, native = False):
 
     env = None
     try:
-        env = lambda_context['env']
+        env = event['env']
     except KeyError:
         pass
 
@@ -144,13 +144,14 @@ def run_tests(event, lambda_context, native = False):
         sys.exit(1)
 
 def autograph_canary_monitor(event, context):
+    logger.debug('running autograph_canary_monitor with event={!r} and context={!r}'.format(event, context))
     run_tests(event, context, native = True)
 
 if __name__ == "__main__":
     # simulate the lambda when run from a main program
-    run_tests(event = None, lambda_context = {
+    run_tests(event = {
         "env" : {
             "signed_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
             "unsigned_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi"
         }
-    }, native = True)
+    }, lambda_context = None, native = True)
