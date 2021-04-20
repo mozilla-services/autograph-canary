@@ -12,8 +12,14 @@ services:
       - CANARY_LOG_LEVEL=debug
     volumes:
       - tmpdir:/tmp/
-    command:
-      [
-        "python",
-        "/app/autograph.py",
-      ]
+
+  emulator:
+    container_name: autograph-canary-lambda-emulator
+    image: autograph-canary-lambda-emulator
+    build:
+      context: .
+      dockerfile: Dockerfile.lambda-emulator
+    volumes:
+      - tmpdir:/tmp/
+    ports:
+      - "9000:8080"
