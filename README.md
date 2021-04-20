@@ -24,7 +24,7 @@ To run integration tests in the containerized AWS lambda emulator:
 
 1. Run `make build` to build the canary and emulator containers
 
-1. Run `make integration-test` to run start the emulator and run `bin/test_canary.sh`
+1. Run `make integration-test`, which starts the emulator and runs `bin/run_integration_tests.sh`
 
 ## AWS lambda
 
