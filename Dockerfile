@@ -25,9 +25,6 @@ COPY tests ${FUNCTION_DIR}/tests
 # Install the function's dependencies
 RUN pip install --target ${FUNCTION_DIR} --pre -r ${FUNCTION_DIR}/requirements.txt
 
-# Install the function's dependencies
-RUN pip install --target ${FUNCTION_DIR} awslambdaric
-
 
 FROM python:3.8-buster
 ENV DEBIAN_FRONTEND=noninteractive
