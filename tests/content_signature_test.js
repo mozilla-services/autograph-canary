@@ -428,6 +428,14 @@ register_command(
       "security.content.signature.root_hash",
       // We're testing with the OneCRL collection - what signer is used?
       "services.settings.security.onecrl.signer",
+      // Did we override the main, blocklists, or pinning buckets to -preview?
+      "services.settings.default_bucket",
+      "services.blocklist.bucket",
+      "services.blocklist.pinning.bucket",
+      // Did we enable logs?
+      "services.settings.loglevel",
+      // What URL is megaphone/autopush using?
+      "dom.push.serverURL",
     ],
   })
 );
