@@ -23,3 +23,12 @@ services:
       - tmpdir:/tmp/
     ports:
       - "9000:8080"
+
+  js-devtools:
+    container_name: autograph-canary-js-devtools
+    image: autograph-canary-js-devtools
+    build:
+      context: .
+      dockerfile: Dockerfile.js-devtools
+    volumes:
+      - .:/app
