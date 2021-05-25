@@ -19,12 +19,13 @@ RUN apt-get update && \
 RUN mkdir -p ${FUNCTION_DIR}/tests
 
 ADD requirements.txt ${FUNCTION_DIR}
-ADD autograph.py ${FUNCTION_DIR}
-COPY tests ${FUNCTION_DIR}/tests
 
 # Install the function's dependencies
 RUN pip install --target ${FUNCTION_DIR} --pre -r ${FUNCTION_DIR}/requirements.txt
 
+# add function code
+ADD autograph.py ${FUNCTION_DIR}
+COPY tests ${FUNCTION_DIR}/tests
 
 FROM python:3.8-buster
 ENV DEBIAN_FRONTEND=noninteractive
