@@ -206,25 +206,103 @@ d6p55v4o5khhgaH1sI/bqYXj0Dl4EWdsvoGzjuxaJ11RnNn38vKPmlE=
   );
 }
 
-// https://searchfox.org/mozilla-central/source/toolkit/components/telemetry/Histograms.json
-const VERIFICATION_HISTOGRAM = Services.telemetry.getHistogramById(
-  "CONTENT_SIGNATURE_VERIFICATION_STATUS"
-);
-const ERROR_HISTOGRAM = Services.telemetry.getKeyedHistogramById(
-  "CONTENT_SIGNATURE_VERIFICATION_ERRORS"
-);
+class Telemetry {
+  // What was the result of the content signature verification?
+  static VERIFICATION_HISTOGRAM = Services.telemetry.getHistogramById(
+    "CONTENT_SIGNATURE_VERIFICATION_STATUS"
+  );
 
-function get_telemetry() {
-  // "Result of the content signature verification keyed by application (certificate fingerprint). 0=valid, 1=invalid, 2=noCertChain, 3=createContextFailedWithOtherError, 4=expiredCert, 5=certNotValidYet, 6=buildCertChainFailed, 7=eeCertForWrongHost, 8=extractKeyError, 9=vfyContextError"
-  let errorSnapshot = ERROR_HISTOGRAM.snapshot();
+  // Result of the content signature verification keyed by application (certificate fingerprint)
+  static ERROR_HISTOGRAM = Services.telemetry.getKeyedHistogramById(
+    "CONTENT_SIGNATURE_VERIFICATION_ERRORS"
+  );
 
-  // "What was the result of the content signature verification? 0=valid, 1=invalid, 2=noCertChain, 3=createContextFailedWithOtherError, 4=expiredCert, 5=certNotValidYet, 6=buildCertChainFailed, 7=eeCertForWrongHost, 8=extractKeyError, 9=vfyContextError"
-  let verificationSnapshot = VERIFICATION_HISTOGRAM.snapshot();
+  // map of telemetry codes to descriptions from
+  // https://searchfox.org/mozilla-central/rev/08f063f4c89d270fd809fc0325b5a9000ae87d63/toolkit/components/telemetry/Histograms.json#11868-11888
+  //
+  // currently both histograms use the same codes
+  static ResultStatusMap = new Map([
+    ["0", "valid"],
+    ["1", "invalid"],
+    ["2", "noCertChain"],
+    ["3", "createContextFailedWithOtherError"],
+    ["4", "expiredCert"],
+    ["5", "certNotValidYet"],
+    ["6", "buildCertChainFailed"],
+    ["7", "eeCertForWrongHost"],
+    ["8", "extractKeyError"],
+    ["9", "vfyContextError"],
+  ]);
 
-  return {
-    errors: errorSnapshot,
-    verifications: verificationSnapshot,
-  };
+  static clear() {
+    Telemetry.VERIFICATION_HISTOGRAM.clear();
+    Telemetry.ERROR_HISTOGRAM.clear();
+  }
+
+  static snapshot() {
+    return {
+      errors: Telemetry.ERROR_HISTOGRAM.snapshot(),
+      verifications: Telemetry.VERIFICATION_HISTOGRAM.snapshot(),
+    };
+  }
+
+  // snapshotCodeToStatus returns the status of the first telemetry
+  // code with a count of one:
+  //
+  // {"0": 1, "1": 0} => "valid"
+  //
+  // "none" for an empty histogram object (the errors histogram when
+  // verification succeeds):
+  //
+  // {} => "none"
+  //
+  // or throw an error for an unrecognized code:
+  //
+  // {"bar": 1} => Error("unknown telemetry status code: bar")
+  //
+  // snapshot is an object of a string code to a histogram count
+  //
+  // We expect snapshot to contain at most one telemetry result
+  // (i.e. the sum of all counts is 0 or 1), since we should only
+  // collect telemetry results from one content signature
+  // verification attempt.
+  //
+  static snapshotCodeToStatus(snapshot) {
+    for (let code in snapshot) {
+      if (snapshot[code] === 1) {
+        if (!Telemetry.ResultStatusMap.has(code)) {
+          throw `unknown telemetry status code: ${code}`;
+        }
+        return Telemetry.ResultStatusMap.get(code);
+      }
+    }
+    return "none";
+  }
+
+  // firstAppValue returns the value of the first app key in an error histogram snapshot object:
+  //
+  // {"AD2E8CE0487FB6FA9DF1EEF8A6A8E7E8A3F089FB912276834A7172ECBC7C3873":{"bucket_count":51,"histogram_type":5,"sum":1,"range":[1,50],"values":{"0":0,"1":1,"2":0}}}
+  // =>
+  // {"bucket_count":51,"histogram_type":5,"sum":1,"range":[1,50],"values":{"0":0,"1":1,"2":0}}
+  static firstAppValue(errorSnapshot) {
+    for (let key in errorSnapshot) {
+      return errorSnapshot[key];
+    }
+    return null;
+  }
+
+  static pretty() {
+    const snapshot = Telemetry.snapshot();
+    const verificationStatus = Telemetry.snapshotCodeToStatus(
+      snapshot["verifications"]["values"]
+    );
+    const appErrorSnapshot = Telemetry.firstAppValue(snapshot["errors"]);
+    const errorStatus =
+      appErrorSnapshot !== null
+        ? Telemetry.snapshotCodeToStatus(appErrorSnapshot["values"])
+        : "none";
+    return `verification: ${verificationStatus} (error: ${errorStatus})`;
+  }
 }
 
 async function run_test(args, response_cb) {
@@ -238,8 +316,7 @@ async function run_test(args, response_cb) {
   Services.prefs.clearUserPref("dom.push.serverURL");
   Services.prefs.clearUserPref("services.settings.load_dump");
 
-  VERIFICATION_HISTOGRAM.clear();
-  ERROR_HISTOGRAM.clear();
+  Telemetry.clear();
 
   const env = "prod";
   await switchEnvironment(env);
@@ -266,13 +343,13 @@ async function run_test(args, response_cb) {
   print(`fetched ${METADATA_URL}`);
   const metadata = await res.json();
 
-  const x5uResponse = await fetch(metadata.data.signature.x5u);
-  print(`fetched ${metadata.data.signature.x5u}`);
-  const certChain = await x5uResponse.text();
-
   const recordResponse = await fetch(RECORD_URL);
   print(`fetched ${RECORD_URL}`);
   const records = await recordResponse.json();
+
+  const x5uResponse = await fetch(metadata.data.signature.x5u);
+  print(`fetched ${metadata.data.signature.x5u}`);
+  const certChain = await x5uResponse.text();
 
   let last_modified = 0;
   for (let record of records.data) {
@@ -304,9 +381,13 @@ async function run_test(args, response_cb) {
       certChain,
       SIGNER_NAME
     );
+
     print(
-      `verified content signature for ${BUCKET}/${COLLECTION} with status ${verified} and telemetry ${JSON.stringify(
-        get_telemetry()
+      `verified content signature for ${BUCKET}/${COLLECTION} with result: ${verified}`
+    );
+    print(
+      `telemetry results: ${Telemetry.pretty()}\nJSON: ${JSON.stringify(
+        Telemetry.snapshot()
       )}`
     );
 
