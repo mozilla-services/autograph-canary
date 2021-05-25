@@ -32,10 +32,10 @@ const HASH_LOCAL =
 
 const MEGAPHONE_STAGE = "https://autopush.stage.mozaws.net";
 
-/**
- * switchEnvironment() will set the necessary internal preferences to switch from
- * an environment to another.
- */
+// switchEnvironment sets preferences to switch from one environment to another.
+//
+// e.g. something matching (prod|stage|local)(-preview)?
+//
 async function switchEnvironment(env) {
   if (env.includes("prod")) {
     Services.prefs.setCharPref("services.settings.server", SERVER_PROD);
@@ -84,6 +84,9 @@ async function switchEnvironment(env) {
   }
 }
 
+// verifyContentSignatureFixture is a modified version of
+// https://searchfox.org/mozilla-central/source/services/settings/test/unit/test_remote_settings_signatures.js
+//
 async function verifyContentSignatureFixture() {
   // from https://searchfox.org/mozilla-central/source/services/settings/test/unit/test_remote_settings_signatures
   const chainFilenamesToContent = new Map([
@@ -206,6 +209,13 @@ d6p55v4o5khhgaH1sI/bqYXj0Dl4EWdsvoGzjuxaJ11RnNn38vKPmlE=
   );
 }
 
+// Telemetry is a class of static data and methods for collecting
+// additional information about content signature verification results
+// and errors
+//
+// The content signature verifier only returns a bool for successful
+// verification or not.
+//
 class Telemetry {
   // What was the result of the content signature verification?
   static VERIFICATION_HISTOGRAM = Services.telemetry.getHistogramById(
