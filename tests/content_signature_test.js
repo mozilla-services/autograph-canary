@@ -324,12 +324,14 @@ async function run_test(args, response_cb) {
   const RECORD_URL = `${METADATA_URL}/records`;
   print(`testing ${BUCKET}/${COLLECTION}`);
 
-  const res = await fetch(METADATA_URL, { redirect: "follow" });
+  // parallelize metadata and record fetches
+  const [res, recordResponse] = await Promise.all([
+    fetch(METADATA_URL, { redirect: "follow" }),
+    fetch(RECORD_URL),
+  ]);
   print(`fetched ${METADATA_URL}`);
-  const metadata = await res.json();
-
-  const recordResponse = await fetch(RECORD_URL);
   print(`fetched ${RECORD_URL}`);
+  const metadata = await res.json();
   const records = await recordResponse.json();
 
   const x5uResponse = await fetch(metadata.data.signature.x5u);
