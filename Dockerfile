@@ -21,7 +21,7 @@ RUN mkdir -p ${FUNCTION_DIR}/tests
 ADD requirements.txt ${FUNCTION_DIR}
 
 # Install the function's dependencies
-RUN pip install --target ${FUNCTION_DIR} --pre -r ${FUNCTION_DIR}/requirements.txt
+RUN pip install --target ${FUNCTION_DIR} -r ${FUNCTION_DIR}/requirements.txt
 
 # add function code
 ADD autograph.py ${FUNCTION_DIR}
