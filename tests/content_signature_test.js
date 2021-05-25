@@ -153,59 +153,41 @@ d6p55v4o5khhgaH1sI/bqYXj0Dl4EWdsvoGzjuxaJ11RnNn38vKPmlE=
     ],
   ]);
 
-  const PREF_SETTINGS_SERVER = "services.settings.server";
-  const PREF_SIGNATURE_ROOT = "security.content.signature.root_hash";
-  const SIGNER_NAME = "onecrl.content-signature.mozilla.org";
-
-  const CERT_DIR = "test_remote_settings_signatures/";
   const CHAIN_FILES = [
     "collection_signing_ee.pem",
     "collection_signing_int.pem",
     "collection_signing_root.pem",
   ];
 
+  const certChain = (function getCertChain() {
+    const chain = [];
+    for (let filename of CHAIN_FILES) {
+      chain.push(chainFilenamesToContent.get(filename));
+    }
+    return chain.join("\n");
+  })(CHAIN_FILES, chainFilenamesToContent);
+
   const collectionData =
     '[{"details":{"bug":"https://bugzilla.mozilla.org/show_bug.cgi?id=1155145","created":"2016-01-18T14:43:37Z","name":"GlobalSign certs","who":".","why":"."},"enabled":true,"id":"97fbf7c4-3ef2-f54f-0029-1ba6540c63ea","issuerName":"MHExKDAmBgNVBAMTH0dsb2JhbFNpZ24gUm9vdFNpZ24gUGFydG5lcnMgQ0ExHTAbBgNVBAsTFFJvb3RTaWduIFBhcnRuZXJzIENBMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMQswCQYDVQQGEwJCRQ==","last_modified":2000,"serialNumber":"BAAAAAABA/A35EU="},{"details":{"bug":"https://bugzilla.mozilla.org/show_bug.cgi?id=1155145","created":"2016-01-18T14:48:11Z","name":"GlobalSign certs","who":".","why":"."},"enabled":true,"id":"e3bd531e-1ee4-7407-27ce-6fdc9cecbbdc","issuerName":"MIGBMQswCQYDVQQGEwJCRTEZMBcGA1UEChMQR2xvYmFsU2lnbiBudi1zYTElMCMGA1UECxMcUHJpbWFyeSBPYmplY3QgUHVibGlzaGluZyBDQTEwMC4GA1UEAxMnR2xvYmFsU2lnbiBQcmltYXJ5IE9iamVjdCBQdWJsaXNoaW5nIENB","last_modified":3000,"serialNumber":"BAAAAAABI54PryQ="}]';
   const collectionSignature =
     "p384ecdsa=f4pA2tYM5jQgWY6YUmhUwQiBLj6QO5sHLD_5MqLePz95qv-7cNCuQoZnPQwxoptDtW8hcWH3kLb0quR7SB-r82gkpR9POVofsnWJRA-ETb0BcIz6VvI3pDT49ZLlNg3p";
+  const signerName = "onecrl.content-signature.mozilla.org";
 
-  function do_get_file(filename) {
-    return chainFilenamesToContent.get(filename);
-  }
+  // sha2 fingerprint of collection_signing_root.pem
+  const rootHash =
+    "83:D2:09:5F:1F:61:BE:9C:B5:C7:63:49:B6:59:9A:0E:20:BB:C4:7D:40:1F:C1:4D:84:9A:09:5B:3B:88:3C:78";
 
-  function setRoot() {
-    const filename = CHAIN_FILES[0];
-
-    const certFile = do_get_file(filename, false);
-
-    const b64cert = certFile
-      .replace(/-----BEGIN CERTIFICATE-----/, "")
-      .replace(/-----END CERTIFICATE-----/, "")
-      .replace(/[\r\n]/g, "");
-    const certdb = Cc["@mozilla.org/security/x509certdb;1"].getService(
-      Ci.nsIX509CertDB
-    );
-    const cert = certdb.constructX509FromBase64(b64cert);
-    print("setting pref ${PREF_SIGNATURE_ROOT} to ${cert.sha256Fingerprint}");
-    Services.prefs.setCharPref(PREF_SIGNATURE_ROOT, cert.sha256Fingerprint);
-  }
-
-  function getCertChain() {
-    const chain = [];
-    for (let file of CHAIN_FILES) {
-      chain.push(do_get_file(file));
-    }
-    return chain.join("\n");
-  }
+  await switchEnvironment("prod");
 
   // set the content signing root to our test root
-  setRoot();
+  Services.prefs.setCharPref("security.content.signature.root_hash", rootHash);
+  // print(`setting pref security.content.signature.root_hash to ${rootHash}`);
 
   return await verifier.asyncVerifyContentSignature(
     collectionData,
     collectionSignature,
-    getCertChain(),
-    SIGNER_NAME
+    certChain,
+    signerName
   );
 }
 
@@ -316,25 +298,14 @@ class Telemetry {
 }
 
 async function run_test(args, response_cb) {
-  const fixtureVerified = await verifyContentSignatureFixture();
-  print(`verified fixture! ${fixtureVerified}`);
-
-  Services.prefs.setCharPref("services.settings.loglevel", "debug");
-  Services.prefs.setCharPref("services.settings.server", SERVER_PROD);
-  print("setting pref security.content.signature.root_hash to ${HASH_PROD}");
-  Services.prefs.setCharPref("security.content.signature.root_hash", HASH_PROD);
-  Services.prefs.clearUserPref("dom.push.serverURL");
-  Services.prefs.clearUserPref("services.settings.load_dump");
+  print(
+    `fixture verification result: ${await verifyContentSignatureFixture()}`
+  );
 
   Telemetry.clear();
 
-  const env = "prod";
-  await switchEnvironment(env);
-  print(`set crs env to: ${env}`);
-
-  const SETTINGS_SERVER = Services.prefs.getCharPref(
-    "services.settings.server"
-  );
+  Services.prefs.setCharPref("services.settings.loglevel", "debug");
+  await switchEnvironment("prod");
 
   // const BUCKET = "security-state";
   // const COLLECTION = "onecrl";
@@ -343,6 +314,10 @@ async function run_test(args, response_cb) {
   const BUCKET = "main";
   const COLLECTION = "search-config";
   const SIGNER_NAME = "remote-settings.content-signature.mozilla.org";
+
+  const SETTINGS_SERVER = Services.prefs.getCharPref(
+    "services.settings.server"
+  );
 
   const PREFIX = SETTINGS_SERVER + "/buckets/";
   const METADATA_URL = `${PREFIX}${BUCKET}/collections/${COLLECTION}`;
