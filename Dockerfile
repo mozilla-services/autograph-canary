@@ -29,6 +29,7 @@ COPY tests ${FUNCTION_DIR}/tests
 
 FROM python:3.8-buster
 ENV DEBIAN_FRONTEND=noninteractive
+ENV CANARY_LOG_LEVEL=debug
 
 # Include global arg in this stage of the build
 ARG FUNCTION_DIR
