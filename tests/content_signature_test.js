@@ -4,6 +4,28 @@
 
 "use strict";
 
+// content_signature_test.js fetches and verifies remote settings collections
+//
+// Example args and result (as the autograph.py xpcshell sees):
+//
+// [
+//  {
+//    env: "prod",
+//    bucket: "security-state",
+//    collection: "onecrl",
+//    signer_name: "onecrl.content-signature.mozilla.org",
+//  },
+//  {
+//     env: "prod",
+//     bucket: "main",
+//     collection: "search-config",
+//     signer_name: "remote-settings.content-signature.mozilla.org",
+//  }
+// ]
+// =>
+// {'id': 2, 'original_cmd': {'id': 2, 'mode': 'run_test', 'args': {'tests': [{'env': 'prod', 'bucket': 'security-state', 'collection': 'onecrl', 'signer_name': 'onecrl.content-signature.mozilla.org'}, {'env': 'prod', 'bucket': 'main', 'collection': 'search-config', 'signer_name': 'remote-settings.content-signature.mozilla.org'}]}}, 'worker_id': 5595791101207607000, 'success': True, 'result': {'origin': 'run_test', 'results': [{'verified': True, 'messages': ['testing security-state/onecrl', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/security-state/collections/onecrl', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/security-state/collections/onecrl/records', 'fetched https://content-signature-2.cdn.mozilla.net/chains/onecrl.content-signature.mozilla.org-2021-07-01-15-05-53.chain', 'verified content signature for security-state/onecrl with result: true', 'telemetry results: verification: valid (error: none)\nJSON: {"errors":{},"verifications":{"bucket_count":21,"histogram_type":1,"sum":0,"range":[1,20],"values":{"0":1,"1":0}}}'], 'error': None}, {'verified': True, 'messages': ['testing main/search-config', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/search-config', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/search-config/records', 'fetched https://content-signature-2.cdn.mozilla.net/chains/remote-settings.content-signature.mozilla.org-2021-07-01-15-05-56.chain', 'verified content signature for main/search-config with result: true', 'telemetry results: verification: valid (error: none)\nJSON: {"errors":{},"verifications":{"bucket_count":21,"histogram_type":1,"sum":0,"range":[1,20],"values":{"0":1,"1":0}}}'], 'error': None}], 'fixture_verified': True, 'messages': ['fixture verification result: true']}, 'command_time': 1622043429543, 'response_time': 1622043432166}
+//
+
 ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 
 Cu.importGlobalProperties(["fetch"]);
@@ -297,45 +319,37 @@ class Telemetry {
   }
 }
 
-async function run_test(args, response_cb) {
-  print(
-    `fixture verification result: ${await verifyContentSignatureFixture()}`
-  );
+
+// fetchAndVerifyContentSignatureCollection fetches and verifies a
+// remote settings collection
+//
+async function fetchAndVerifyContentSignatureCollection(options) {
+  let messages = [];
+  const { env, bucket, collection, signer_name } = options;
+  // print(`in test with ${env} ${bucket} ${collection} ${signer_name}`);
 
   Telemetry.clear();
-
-  Services.prefs.setCharPref("services.settings.loglevel", "debug");
-  await switchEnvironment("prod");
-
-  // const BUCKET = "security-state";
-  // const COLLECTION = "onecrl";
-  // const SIGNER_NAME = "onecrl.content-signature.mozilla.org";
-
-  const BUCKET = "main";
-  const COLLECTION = "search-config";
-  const SIGNER_NAME = "remote-settings.content-signature.mozilla.org";
+  await switchEnvironment(env);
 
   const SETTINGS_SERVER = Services.prefs.getCharPref(
     "services.settings.server"
   );
-
-  const PREFIX = SETTINGS_SERVER + "/buckets/";
-  const METADATA_URL = `${PREFIX}${BUCKET}/collections/${COLLECTION}`;
+  const METADATA_URL = `${SETTINGS_SERVER}/buckets/${bucket}/collections/${collection}`;
   const RECORD_URL = `${METADATA_URL}/records`;
-  print(`testing ${BUCKET}/${COLLECTION}`);
+  messages.push(`testing ${bucket}/${collection}`);
 
   // parallelize metadata and record fetches
   const [res, recordResponse] = await Promise.all([
     fetch(METADATA_URL, { redirect: "follow" }),
     fetch(RECORD_URL),
   ]);
-  print(`fetched ${METADATA_URL}`);
-  print(`fetched ${RECORD_URL}`);
+  messages.push(`fetched ${METADATA_URL}`);
+  messages.push(`fetched ${RECORD_URL}`);
   const metadata = await res.json();
   const records = await recordResponse.json();
 
   const x5uResponse = await fetch(metadata.data.signature.x5u);
-  print(`fetched ${metadata.data.signature.x5u}`);
+  messages.push(`fetched ${metadata.data.signature.x5u}`);
   const certChain = await x5uResponse.text();
 
   let last_modified = 0;
@@ -366,24 +380,27 @@ async function run_test(args, response_cb) {
       serialized,
       `p384ecdsa=${metadata.data.signature.signature}`,
       certChain,
-      SIGNER_NAME
+      signer_name
     );
 
-    print(
-      `verified content signature for ${BUCKET}/${COLLECTION} with result: ${verified}`
+    messages.push(
+      `verified content signature for ${bucket}/${collection} with result: ${verified}`
     );
-    print(
+    messages.push(
       `telemetry results: ${Telemetry.pretty()}\nJSON: ${JSON.stringify(
         Telemetry.snapshot()
       )}`
     );
-
-    response_cb(verified, { origin: "run_test" });
+    return {
+      verified: verified,
+      messages: messages,
+      error: null,
+    };
   } catch (error) {
     if (error.details) {
-      print("got error with details:");
+      messages.push("got error with details:");
       const { bucket, collection } = error.details;
-      console.error(
+      messages.push(
         `Error with ${bucket}/${collection}`,
         JSON.stringify({
           bucket,
@@ -392,12 +409,41 @@ async function run_test(args, response_cb) {
         })
       );
     } else {
-      print("got error without details:");
-      console.error(error);
+      messages.push(`got error without details: ${error}`);
     }
-    console.trace(error);
-    response_cb(false, { origin: "run_test" });
+    messages.push(error.stack);
+    return {
+      verified: false,
+      messages: messages,
+      error: error,
+    };
   }
+}
+
+async function run_test(args, response_cb) {
+  let messages = [];
+
+  const fixtureVerificationResult = await verifyContentSignatureFixture();
+  messages.push(`fixture verification result: ${fixtureVerificationResult}`);
+
+  Services.prefs.setCharPref("services.settings.loglevel", "debug");
+
+  let results = [];
+  let allVerified = true;
+  for (const test of args["tests"]) {
+    // print(`testing ${JSON.stringify(test)}`);
+    const result = await fetchAndVerifyContentSignatureCollection(test);
+    results.push(result);
+    if (!result.verified) {
+      allVerified = false;
+    }
+  }
+  response_cb(allVerified, {
+    origin: "run_test",
+    results: results,
+    fixture_verified: fixtureVerificationResult,
+    messages: messages,
+  });
 }
 
 register_command("run_test", run_test);
