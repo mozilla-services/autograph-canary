@@ -120,8 +120,19 @@ def run_tests(event, lambda_context, native=False):
             "signer_name": "remote-settings.content-signature.mozilla.org",
         },
     ]
+    addon_test = {
+        "signed_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
+        "unsigned_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi",
+    }
 
     for script_path in script_files:
+        if script_path.endswith("content_signature_test.js"):
+            run_test_kwargs = dict(tests=csig_tests)
+        elif script_path.endswith("addon_signature_test.js"):
+            run_test_kwargs = dict(env=addon_test)
+        else:
+            run_test_kwargs = dict()
+
         profile_dir = __create_tempdir(prefix="profile_")
         w = xw.XPCShellWorker(
             app,
@@ -130,7 +141,8 @@ def run_tests(event, lambda_context, native=False):
         )
         w.spawn()
         info_response = sync_send(w, xw.Command("get_worker_info", id=1))
-        response = sync_send(w, xw.Command(mode="run_test", id=2, tests=csig_tests))
+
+        response = sync_send(w, xw.Command(mode="run_test", id=2, **run_test_kwargs))
         w.terminate()
 
         res_dict = response.as_dict()
