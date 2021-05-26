@@ -103,10 +103,10 @@ var test_addon_install = async function (
 };
 
 var run_test = async function (args, response_cb) {
+  let debug_messages = [];
+
   try {
     await promise_startup();
-
-    let debug_messages = [];
 
     // TODO: MDG - Take the unsigned addon file from the filesystem (relative lambda path).
     debug_messages.push("args are....");
