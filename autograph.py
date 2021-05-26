@@ -75,23 +75,10 @@ def sync_send(worker, command):
     raise Exception("Message timed out")
 
 def run_tests(event, lambda_context, native = False):
+    coloredlogs.install(level=os.environ["CANARY_LOG_LEVEL"])
+
     temp_dir = __create_tempdir()
     app = get_app(temp_dir, native)
-
-    env = None
-    try:
-        env = event['env']
-    except KeyError:
-        pass
-
-    if None != env:
-        level = None
-        try:
-            level = env["CANARY_LOG_LEVEL"]
-        except KeyError:
-            pass
-        if None != level:
-            coloredlogs.install(level=level)
 
     # Spawn a worker.
 
@@ -115,6 +102,21 @@ def run_tests(event, lambda_context, native = False):
     # Unless a test fails, we want to exit with a non-error result
     failure_seen = False
 
+    csig_tests = [
+        {
+            "env": "prod",
+            "bucket": "security-state",
+            "collection": "onecrl",
+            "signer_name": "onecrl.content-signature.mozilla.org",
+        },
+        {
+            "env": "prod",
+            "bucket": "main",
+            "collection": "search-config",
+            "signer_name": "remote-settings.content-signature.mozilla.org",
+        },
+    ]
+
     for script_path in script_files:
         profile_dir = __create_tempdir(prefix = "profile_")
         w = xw.XPCShellWorker(app,
@@ -122,7 +124,7 @@ def run_tests(event, lambda_context, native = False):
                             profile = profile_dir)
         w.spawn()
         info_response = sync_send(w, xw.Command("get_worker_info", id = 1))
-        response = sync_send(w, xw.Command(mode = "run_test", id = 2, env = env))
+        response = sync_send(w, xw.Command(mode="run_test", id=2, tests=csig_tests))
         w.terminate()
 
         res_dict = response.as_dict()
