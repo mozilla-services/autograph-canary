@@ -149,9 +149,4 @@ def autograph_canary_monitor(event, context):
 
 if __name__ == "__main__":
     # simulate the lambda when run from a main program
-    run_tests(event = {
-        "env" : {
-            "signed_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
-            "unsigned_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi"
-        }
-    }, lambda_context = None, native = True)
+    run_tests({}, lambda_context=None, native=True)
