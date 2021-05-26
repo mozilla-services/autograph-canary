@@ -24,24 +24,27 @@ module_dir = None
 # Initialize coloredlogs
 logging.Formatter.converter = time.gmtime
 logger = logging.getLogger(__name__)
-coloredlogs.DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s"
-coloredlogs.install(level="INFO")
+coloredlogs.DEFAULT_LOG_FORMAT = (
+    "%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s"
+)
+coloredlogs.install(level="DEBUG")
 
 # TODO: MDG - Move create_tempdir to a helper module
-def __create_tempdir(prefix = "canary_"):
+def __create_tempdir(prefix="canary_"):
     """
     Helper function for creating the temporary directory.
     Writes to the global variable tmp_dir
     :return: Path of temporary directory
     """
-    temp_dir = tempfile.mkdtemp(prefix = prefix)
-    logger.debug('Created temp dir `%s`' % temp_dir)
+    temp_dir = tempfile.mkdtemp(prefix=prefix)
+    logger.debug("Created temp dir `%s`" % temp_dir)
     return temp_dir
 
+
 def get_app(temp_dir, native):
-    downloader = fx_dl.FirefoxDownloader(temp_dir, cache_timeout = 1)
+    downloader = fx_dl.FirefoxDownloader(temp_dir, cache_timeout=1)
     if native:
-        test_archive = downloader.download("nightly", use_cache = True)
+        test_archive = downloader.download("nightly", use_cache=True)
         return fx_ex.extract(test_archive, temp_dir)
     else:
         url = fx_dl.FirefoxDownloader.get_download_url("nightly")
@@ -49,10 +52,11 @@ def get_app(temp_dir, native):
         dc = bz2.BZ2Decompressor()
         r = requests.get(url)
         f = io.BytesIO(dc.decompress(r.content))
-        ta = tarfile.open(fileobj = f)
+        ta = tarfile.open(fileobj=f)
         print("extracting tar file to %s" % temp_dir)
-        ta.extractall(path = temp_dir)
+        ta.extractall(path=temp_dir)
         return fx_app.FirefoxApp(temp_dir)
+
 
 def sync_send(worker, command):
     worker.send(command)
@@ -74,7 +78,8 @@ def sync_send(worker, command):
             break
     raise Exception("Message timed out")
 
-def run_tests(event, lambda_context, native = False):
+
+def run_tests(event, lambda_context, native=False):
     coloredlogs.install(level=os.environ["CANARY_LOG_LEVEL"])
 
     temp_dir = __create_tempdir()
@@ -90,12 +95,11 @@ def run_tests(event, lambda_context, native = False):
     if os.path.isdir(test_path):
         children = os.listdir(test_path)
         script_files = [
-                            os.path.abspath(p) for p in filter(
-                                os.path.isfile,
-                                [
-                                    os.path.join(test_path, child) for child in children
-                                ])
-                        ]
+            os.path.abspath(p)
+            for p in filter(
+                os.path.isfile, [os.path.join(test_path, child) for child in children]
+            )
+        ]
     else:
         script_files = [test_path]
 
@@ -118,12 +122,14 @@ def run_tests(event, lambda_context, native = False):
     ]
 
     for script_path in script_files:
-        profile_dir = __create_tempdir(prefix = "profile_")
-        w = xw.XPCShellWorker(app,
-                            script = script_path,
-                            profile = profile_dir)
+        profile_dir = __create_tempdir(prefix="profile_")
+        w = xw.XPCShellWorker(
+            app,
+            script=script_path,
+            profile=profile_dir,
+        )
         w.spawn()
-        info_response = sync_send(w, xw.Command("get_worker_info", id = 1))
+        info_response = sync_send(w, xw.Command("get_worker_info", id=1))
         response = sync_send(w, xw.Command(mode="run_test", id=2, tests=csig_tests))
         w.terminate()
 
@@ -131,9 +137,14 @@ def run_tests(event, lambda_context, native = False):
 
         # If a test has failed, exit with error status
         if res_dict["success"]:
-            print("SUCCESS: %s executed with result %s" % (script_path, res_dict["success"]))
+            print(
+                "SUCCESS: %s executed with result %s"
+                % (script_path, res_dict["success"])
+            )
         else:
-            print("FAIL: %s executed with result %s" % (script_path, res_dict["success"]))
+            print(
+                "FAIL: %s executed with result %s" % (script_path, res_dict["success"])
+            )
             failure_seen = True
 
         print(res_dict)
@@ -145,9 +156,15 @@ def run_tests(event, lambda_context, native = False):
     else:
         sys.exit(1)
 
+
 def autograph_canary_monitor(event, context):
-    logger.debug('running autograph_canary_monitor with event={!r} and context={!r}'.format(event, context))
-    run_tests(event, context, native = True)
+    logger.debug(
+        "running autograph_canary_monitor with event={!r} and context={!r}".format(
+            event, context
+        )
+    )
+    run_tests(event, context, native=True)
+
 
 if __name__ == "__main__":
     # simulate the lambda when run from a main program
