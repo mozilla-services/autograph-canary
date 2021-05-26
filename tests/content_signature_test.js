@@ -4,6 +4,28 @@
 
 "use strict";
 
+// content_signature_test.js fetches and verifies remote settings collections
+//
+// Example args and result (as the autograph.py xpcshell sees):
+//
+// [
+//  {
+//    env: "prod",
+//    bucket: "security-state",
+//    collection: "onecrl",
+//    signer_name: "onecrl.content-signature.mozilla.org",
+//  },
+//  {
+//     env: "prod",
+//     bucket: "main",
+//     collection: "search-config",
+//     signer_name: "remote-settings.content-signature.mozilla.org",
+//  }
+// ]
+// =>
+// {'id': 2, 'original_cmd': {'id': 2, 'mode': 'run_test', 'args': {'tests': [{'env': 'prod', 'bucket': 'security-state', 'collection': 'onecrl', 'signer_name': 'onecrl.content-signature.mozilla.org'}, {'env': 'prod', 'bucket': 'main', 'collection': 'search-config', 'signer_name': 'remote-settings.content-signature.mozilla.org'}]}}, 'worker_id': 5595791101207607000, 'success': True, 'result': {'origin': 'run_test', 'results': [{'verified': True, 'messages': ['testing security-state/onecrl', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/security-state/collections/onecrl', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/security-state/collections/onecrl/records', 'fetched https://content-signature-2.cdn.mozilla.net/chains/onecrl.content-signature.mozilla.org-2021-07-01-15-05-53.chain', 'verified content signature for security-state/onecrl with result: true', 'telemetry results: verification: valid (error: none)\nJSON: {"errors":{},"verifications":{"bucket_count":21,"histogram_type":1,"sum":0,"range":[1,20],"values":{"0":1,"1":0}}}'], 'error': None}, {'verified': True, 'messages': ['testing main/search-config', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/search-config', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/search-config/records', 'fetched https://content-signature-2.cdn.mozilla.net/chains/remote-settings.content-signature.mozilla.org-2021-07-01-15-05-56.chain', 'verified content signature for main/search-config with result: true', 'telemetry results: verification: valid (error: none)\nJSON: {"errors":{},"verifications":{"bucket_count":21,"histogram_type":1,"sum":0,"range":[1,20],"values":{"0":1,"1":0}}}'], 'error': None}], 'fixture_verified': True, 'messages': ['fixture verification result: true']}, 'command_time': 1622043429543, 'response_time': 1622043432166}
+//
+
 ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 
 Cu.importGlobalProperties(["fetch"]);
@@ -32,10 +54,10 @@ const HASH_LOCAL =
 
 const MEGAPHONE_STAGE = "https://autopush.stage.mozaws.net";
 
-/**
- * switchEnvironment() will set the necessary internal preferences to switch from
- * an environment to another.
- */
+// switchEnvironment sets preferences to switch from one environment to another.
+//
+// e.g. something matching (prod|stage|local)(-preview)?
+//
 async function switchEnvironment(env) {
   if (env.includes("prod")) {
     Services.prefs.setCharPref("services.settings.server", SERVER_PROD);
@@ -84,6 +106,9 @@ async function switchEnvironment(env) {
   }
 }
 
+// verifyContentSignatureFixture is a modified version of
+// https://searchfox.org/mozilla-central/source/services/settings/test/unit/test_remote_settings_signatures.js
+//
 async function verifyContentSignatureFixture() {
   // from https://searchfox.org/mozilla-central/source/services/settings/test/unit/test_remote_settings_signatures
   const chainFilenamesToContent = new Map([
@@ -150,62 +175,51 @@ d6p55v4o5khhgaH1sI/bqYXj0Dl4EWdsvoGzjuxaJ11RnNn38vKPmlE=
     ],
   ]);
 
-  const PREF_SETTINGS_SERVER = "services.settings.server";
-  const PREF_SIGNATURE_ROOT = "security.content.signature.root_hash";
-  const SIGNER_NAME = "onecrl.content-signature.mozilla.org";
-
-  const CERT_DIR = "test_remote_settings_signatures/";
   const CHAIN_FILES = [
     "collection_signing_ee.pem",
     "collection_signing_int.pem",
     "collection_signing_root.pem",
   ];
 
+  const certChain = (function getCertChain() {
+    const chain = [];
+    for (let filename of CHAIN_FILES) {
+      chain.push(chainFilenamesToContent.get(filename));
+    }
+    return chain.join("\n");
+  })(CHAIN_FILES, chainFilenamesToContent);
+
   const collectionData =
     '[{"details":{"bug":"https://bugzilla.mozilla.org/show_bug.cgi?id=1155145","created":"2016-01-18T14:43:37Z","name":"GlobalSign certs","who":".","why":"."},"enabled":true,"id":"97fbf7c4-3ef2-f54f-0029-1ba6540c63ea","issuerName":"MHExKDAmBgNVBAMTH0dsb2JhbFNpZ24gUm9vdFNpZ24gUGFydG5lcnMgQ0ExHTAbBgNVBAsTFFJvb3RTaWduIFBhcnRuZXJzIENBMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMQswCQYDVQQGEwJCRQ==","last_modified":2000,"serialNumber":"BAAAAAABA/A35EU="},{"details":{"bug":"https://bugzilla.mozilla.org/show_bug.cgi?id=1155145","created":"2016-01-18T14:48:11Z","name":"GlobalSign certs","who":".","why":"."},"enabled":true,"id":"e3bd531e-1ee4-7407-27ce-6fdc9cecbbdc","issuerName":"MIGBMQswCQYDVQQGEwJCRTEZMBcGA1UEChMQR2xvYmFsU2lnbiBudi1zYTElMCMGA1UECxMcUHJpbWFyeSBPYmplY3QgUHVibGlzaGluZyBDQTEwMC4GA1UEAxMnR2xvYmFsU2lnbiBQcmltYXJ5IE9iamVjdCBQdWJsaXNoaW5nIENB","last_modified":3000,"serialNumber":"BAAAAAABI54PryQ="}]';
   const collectionSignature =
     "p384ecdsa=f4pA2tYM5jQgWY6YUmhUwQiBLj6QO5sHLD_5MqLePz95qv-7cNCuQoZnPQwxoptDtW8hcWH3kLb0quR7SB-r82gkpR9POVofsnWJRA-ETb0BcIz6VvI3pDT49ZLlNg3p";
+  const signerName = "onecrl.content-signature.mozilla.org";
 
-  function do_get_file(filename) {
-    return chainFilenamesToContent.get(filename);
-  }
+  // sha2 fingerprint of collection_signing_root.pem
+  const rootHash =
+    "83:D2:09:5F:1F:61:BE:9C:B5:C7:63:49:B6:59:9A:0E:20:BB:C4:7D:40:1F:C1:4D:84:9A:09:5B:3B:88:3C:78";
 
-  function setRoot() {
-    const filename = CHAIN_FILES[0];
-
-    const certFile = do_get_file(filename, false);
-
-    const b64cert = certFile
-      .replace(/-----BEGIN CERTIFICATE-----/, "")
-      .replace(/-----END CERTIFICATE-----/, "")
-      .replace(/[\r\n]/g, "");
-    const certdb = Cc["@mozilla.org/security/x509certdb;1"].getService(
-      Ci.nsIX509CertDB
-    );
-    const cert = certdb.constructX509FromBase64(b64cert);
-    print("setting pref ${PREF_SIGNATURE_ROOT} to ${cert.sha256Fingerprint}");
-    Services.prefs.setCharPref(PREF_SIGNATURE_ROOT, cert.sha256Fingerprint);
-  }
-
-  function getCertChain() {
-    const chain = [];
-    for (let file of CHAIN_FILES) {
-      chain.push(do_get_file(file));
-    }
-    return chain.join("\n");
-  }
+  await switchEnvironment("prod");
 
   // set the content signing root to our test root
-  setRoot();
+  Services.prefs.setCharPref("security.content.signature.root_hash", rootHash);
+  // print(`setting pref security.content.signature.root_hash to ${rootHash}`);
 
   return await verifier.asyncVerifyContentSignature(
     collectionData,
     collectionSignature,
-    getCertChain(),
-    SIGNER_NAME
+    certChain,
+    signerName
   );
 }
 
+// Telemetry is a class of static data and methods for collecting
+// additional information about content signature verification results
+// and errors
+//
+// The content signature verifier only returns a bool for successful
+// verification or not.
+//
 class Telemetry {
   // What was the result of the content signature verification?
   static VERIFICATION_HISTOGRAM = Services.telemetry.getHistogramById(
@@ -305,50 +319,37 @@ class Telemetry {
   }
 }
 
-async function run_test(args, response_cb) {
-  const fixtureVerified = await verifyContentSignatureFixture();
-  print(`verified fixture! ${fixtureVerified}`);
 
-  Services.prefs.setCharPref("services.settings.loglevel", "debug");
-  Services.prefs.setCharPref("services.settings.server", SERVER_PROD);
-  print("setting pref security.content.signature.root_hash to ${HASH_PROD}");
-  Services.prefs.setCharPref("security.content.signature.root_hash", HASH_PROD);
-  Services.prefs.clearUserPref("dom.push.serverURL");
-  Services.prefs.clearUserPref("services.settings.load_dump");
+// fetchAndVerifyContentSignatureCollection fetches and verifies a
+// remote settings collection
+//
+async function fetchAndVerifyContentSignatureCollection(options) {
+  let messages = [];
+  const { env, bucket, collection, signer_name } = options;
+  // print(`in test with ${env} ${bucket} ${collection} ${signer_name}`);
 
   Telemetry.clear();
-
-  const env = "prod";
   await switchEnvironment(env);
-  print(`set crs env to: ${env}`);
 
   const SETTINGS_SERVER = Services.prefs.getCharPref(
     "services.settings.server"
   );
-
-  // const BUCKET = "security-state";
-  // const COLLECTION = "onecrl";
-  // const SIGNER_NAME = "onecrl.content-signature.mozilla.org";
-
-  const BUCKET = "main";
-  const COLLECTION = "search-config";
-  const SIGNER_NAME = "remote-settings.content-signature.mozilla.org";
-
-  const PREFIX = SETTINGS_SERVER + "/buckets/";
-  const METADATA_URL = `${PREFIX}${BUCKET}/collections/${COLLECTION}`;
+  const METADATA_URL = `${SETTINGS_SERVER}/buckets/${bucket}/collections/${collection}`;
   const RECORD_URL = `${METADATA_URL}/records`;
-  print(`testing ${BUCKET}/${COLLECTION}`);
+  messages.push(`testing ${bucket}/${collection}`);
 
-  const res = await fetch(METADATA_URL, { redirect: "follow" });
-  print(`fetched ${METADATA_URL}`);
+  // parallelize metadata and record fetches
+  const [res, recordResponse] = await Promise.all([
+    fetch(METADATA_URL, { redirect: "follow" }),
+    fetch(RECORD_URL),
+  ]);
+  messages.push(`fetched ${METADATA_URL}`);
+  messages.push(`fetched ${RECORD_URL}`);
   const metadata = await res.json();
-
-  const recordResponse = await fetch(RECORD_URL);
-  print(`fetched ${RECORD_URL}`);
   const records = await recordResponse.json();
 
   const x5uResponse = await fetch(metadata.data.signature.x5u);
-  print(`fetched ${metadata.data.signature.x5u}`);
+  messages.push(`fetched ${metadata.data.signature.x5u}`);
   const certChain = await x5uResponse.text();
 
   let last_modified = 0;
@@ -379,24 +380,27 @@ async function run_test(args, response_cb) {
       serialized,
       `p384ecdsa=${metadata.data.signature.signature}`,
       certChain,
-      SIGNER_NAME
+      signer_name
     );
 
-    print(
-      `verified content signature for ${BUCKET}/${COLLECTION} with result: ${verified}`
+    messages.push(
+      `verified content signature for ${bucket}/${collection} with result: ${verified}`
     );
-    print(
+    messages.push(
       `telemetry results: ${Telemetry.pretty()}\nJSON: ${JSON.stringify(
         Telemetry.snapshot()
       )}`
     );
-
-    response_cb(verified, { origin: "run_test" });
+    return {
+      verified: verified,
+      messages: messages,
+      error: null,
+    };
   } catch (error) {
     if (error.details) {
-      print("got error with details:");
+      messages.push("got error with details:");
       const { bucket, collection } = error.details;
-      console.error(
+      messages.push(
         `Error with ${bucket}/${collection}`,
         JSON.stringify({
           bucket,
@@ -405,12 +409,41 @@ async function run_test(args, response_cb) {
         })
       );
     } else {
-      print("got error without details:");
-      console.error(error);
+      messages.push(`got error without details: ${error}`);
     }
-    console.trace(error);
-    response_cb(false, { origin: "run_test" });
+    messages.push(error.stack);
+    return {
+      verified: false,
+      messages: messages,
+      error: error,
+    };
   }
+}
+
+async function run_test(args, response_cb) {
+  let messages = [];
+
+  const fixtureVerificationResult = await verifyContentSignatureFixture();
+  messages.push(`fixture verification result: ${fixtureVerificationResult}`);
+
+  Services.prefs.setCharPref("services.settings.loglevel", "debug");
+
+  let results = [];
+  let allVerified = true;
+  for (const test of args["tests"]) {
+    // print(`testing ${JSON.stringify(test)}`);
+    const result = await fetchAndVerifyContentSignatureCollection(test);
+    results.push(result);
+    if (!result.verified) {
+      allVerified = false;
+    }
+  }
+  response_cb(allVerified, {
+    origin: "run_test",
+    results: results,
+    fixture_verified: fixtureVerificationResult,
+    messages: messages,
+  });
 }
 
 register_command("run_test", run_test);
@@ -428,6 +461,14 @@ register_command(
       "security.content.signature.root_hash",
       // We're testing with the OneCRL collection - what signer is used?
       "services.settings.security.onecrl.signer",
+      // Did we override the main, blocklists, or pinning buckets to -preview?
+      "services.settings.default_bucket",
+      "services.blocklist.bucket",
+      "services.blocklist.pinning.bucket",
+      // Did we enable logs?
+      "services.settings.loglevel",
+      // What URL is megaphone/autopush using?
+      "dom.push.serverURL",
     ],
   })
 );
