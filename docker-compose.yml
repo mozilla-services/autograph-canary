@@ -21,6 +21,14 @@ services:
       dockerfile: Dockerfile.lambda-emulator
     volumes:
       - tmpdir:/tmp/
+      # uncomment for local development; leave commented for CI since CircleCI doesn't support volume mounts
+      # - ./tests/:/function/tests/
+      # - ./:/function/local/
+    environment:
+      - CANARY_LOG_LEVEL=debug
+      # uncomment to run one test
+      # - TEST_FILES_GLOB=content_signature_test.js
+      # - TEST_FILES_GLOB=addon_signature_test.js
     ports:
       - "9000:8080"
 
