@@ -15,16 +15,41 @@ signed XPI/Addons and content signtures.
 
 #### Environment Varables
 
-The following environment variables configure logging, tests to run,
-and test targets:
+The following environment variables with their default values below
+configure logging verbosity, tests to run, and test targets.
 
-Variable         | Default     | Description                                                                                      |
------------------|-------------|--------------------------------------------------------------------------------------------------|
-CANARY_LOG_LEVEL | debug       | What log level should be used (use INFO for less verbose logging)                                |
-TEST_FILES_GLOB  | *_test.js   | Which XPCShell test files in `tests/` to run (as matched by [pathlib glob][py3_pathlib_glob])    |
+What log level should be used (use INFO for less verbose logging)
 
+```sh
+CANARY_LOG_LEVEL=debug
+```
+
+Which XPCShell test files in `tests/` to run (as matched by [pathlib
+glob][py3_pathlib_glob])
+
+```sh
+TEST_FILES_GLOB="*_test.js"
+```
+
+Which prefs to use for content signature settings server URL, bucket,
+and root hash (`prod` or `stage` with an optional `-preview` suffix
+same as [remotesettings devtools][rsdevtools]).
+
+```sh
+CSIG_ENV=prod
+```
+
+Which content signature collections to verify. Collections must all
+use the same `CSIG_ENV` and be a CSV list formatted as
+"$BUCKET_NAME/$COLLECTION_NAME". Use `bin/list_collections.sh` to list
+publicly available collections.
+
+```sh
+CSIG_COLLECTIONS=blocklists/gfx,blocklists/addons-bloomfilters,blocklists/plugins,blocklists/addons,blocklists/certificates,main/normandy-recipes,main/normandy-recipes-capabilities,main/hijack-blocklists,main/search-config,security-state/onecrl,security-state/intermediates
+```
 
 [py3_pathlib_glob]: https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob
+[rsdevtools]: https://github.com/mozilla-extensions/remote-settings-devtools
 
 #### Event payload
 

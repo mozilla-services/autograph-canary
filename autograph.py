@@ -89,20 +89,6 @@ def run_tests(event, lambda_context, native=False):
     # Spawn a worker.
     test_files = sorted(path for path in pathlib.Path("./tests").glob(os.environ["TEST_FILES_GLOB"]) if path.is_file())
 
-    csig_tests = [
-        {
-            "env": "prod",
-            "bucket": "security-state",
-            "collection": "onecrl",
-            "signer_name": "onecrl.content-signature.mozilla.org",
-        },
-        {
-            "env": "prod",
-            "bucket": "main",
-            "collection": "search-config",
-            "signer_name": "remote-settings.content-signature.mozilla.org",
-        },
-    ]
     addon_test = {
         "signed_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
         "unsigned_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi",
@@ -113,7 +99,9 @@ def run_tests(event, lambda_context, native=False):
 
     for script_path in test_files:
         if script_path.name == "content_signature_test.js":
-            run_test_kwargs = dict(tests=csig_tests)
+            run_test_kwargs = dict(
+                collections=os.environ["CSIG_COLLECTIONS"], env=os.environ["CSIG_ENV"]
+            )
         elif script_path.name == "addon_signature_test.js":
             run_test_kwargs = addon_test
         else:

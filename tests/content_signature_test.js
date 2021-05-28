@@ -8,23 +8,9 @@
 //
 // Example args and result (as the autograph.py xpcshell sees):
 //
-// [
-//  {
-//    env: "prod",
-//    bucket: "security-state",
-//    collection: "onecrl",
-//    signer_name: "onecrl.content-signature.mozilla.org",
-//  },
-//  {
-//     env: "prod",
-//     bucket: "main",
-//     collection: "search-config",
-//     signer_name: "remote-settings.content-signature.mozilla.org",
-//  }
-// ]
+// {"env": "prod", "collections": ["security-state/onecrl,security-state/intermediates"]}
 // =>
-// {'id': 2, 'original_cmd': {'id': 2, 'mode': 'run_test', 'args': {'tests': [{'env': 'prod', 'bucket': 'security-state', 'collection': 'onecrl', 'signer_name': 'onecrl.content-signature.mozilla.org'}, {'env': 'prod', 'bucket': 'main', 'collection': 'search-config', 'signer_name': 'remote-settings.content-signature.mozilla.org'}]}}, 'worker_id': 5595791101207607000, 'success': True, 'result': {'origin': 'run_test', 'results': [{'verified': True, 'messages': ['testing security-state/onecrl', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/security-state/collections/onecrl', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/security-state/collections/onecrl/records', 'fetched https://content-signature-2.cdn.mozilla.net/chains/onecrl.content-signature.mozilla.org-2021-07-01-15-05-53.chain', 'verified content signature for security-state/onecrl with result: true', 'telemetry results: verification: valid (error: none)\nJSON: {"errors":{},"verifications":{"bucket_count":21,"histogram_type":1,"sum":0,"range":[1,20],"values":{"0":1,"1":0}}}'], 'error': None}, {'verified': True, 'messages': ['testing main/search-config', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/search-config', 'fetched https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/search-config/records', 'fetched https://content-signature-2.cdn.mozilla.net/chains/remote-settings.content-signature.mozilla.org-2021-07-01-15-05-56.chain', 'verified content signature for main/search-config with result: true', 'telemetry results: verification: valid (error: none)\nJSON: {"errors":{},"verifications":{"bucket_count":21,"histogram_type":1,"sum":0,"range":[1,20],"values":{"0":1,"1":0}}}'], 'error': None}], 'fixture_verified': True, 'messages': ['fixture verification result: true']}, 'command_time': 1622043429543, 'response_time': 1622043432166}
-//
+//  {"id":2,"worker_id":2146286766212479000,"original_cmd":{"id":2,"mode":"run_test","args":{"collections":"security-state/onecrl,security-state/intermediates","env":"prod"}},"success":true,"result":{"origin":"run_test","results":[{"verified":true,"messages":["fetched metadata https://firefox.settings.services.mozilla.com/v1/buckets/security-state/collections/onecrl","fetched records https://firefox.settings.services.mozilla.com/v1/buckets/security-state/collections/onecrl/records","testing security-state/onecrl with signer onecrl.content-signature.mozilla.org","fetched X5U https://content-signature-2.cdn.mozilla.net/chains/onecrl.content-signature.mozilla.org-2021-07-01-15-05-53.chain","verified content signature for security-state/onecrl with result: true","telemetry results: verification: valid (error: none)"],"error":null},{"verified":true,"messages":["fetched metadata https://firefox.settings.services.mozilla.com/v1/buckets/security-state/collections/intermediates","fetched records https://firefox.settings.services.mozilla.com/v1/buckets/security-state/collections/intermediates/records","testing security-state/intermediates with signer onecrl.content-signature.mozilla.org","fetched X5U https://content-signature-2.cdn.mozilla.net/chains/onecrl.content-signature.mozilla.org-2021-07-01-15-05-53.chain","verified content signature for security-state/intermediates with result: true","telemetry results: verification: valid (error: none)"],"error":null}],"fixture_verified":true},"command_time":1622227193754,"response_time":1622227196175}
 
 ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 
@@ -324,8 +310,7 @@ class Telemetry {
 //
 async function fetchAndVerifyContentSignatureCollection(options) {
   let messages = [];
-  const { env, bucket, collection, signer_name } = options;
-  // print(`in test with ${env} ${bucket} ${collection} ${signer_name}`);
+  const { env, bucket, collection } = options;
 
   Telemetry.clear();
   await switchEnvironment(env);
@@ -335,7 +320,6 @@ async function fetchAndVerifyContentSignatureCollection(options) {
   );
   const METADATA_URL = `${SETTINGS_SERVER}/buckets/${bucket}/collections/${collection}`;
   const RECORD_URL = `${METADATA_URL}/records`;
-  messages.push(`testing ${bucket}/${collection} with signer ${signer_name}`);
 
   // parallelize metadata and record fetches
   const [res, recordResponse] = await Promise.all([
@@ -346,6 +330,9 @@ async function fetchAndVerifyContentSignatureCollection(options) {
   messages.push(`fetched records ${RECORD_URL}`);
   const metadata = await res.json();
   const records = await recordResponse.json();
+  const signerName = `${metadata.data.signature.signer_id}.content-signature.mozilla.org`;
+
+  messages.push(`testing ${bucket}/${collection} with signer ${signerName}`);
 
   const x5uResponse = await fetch(metadata.data.signature.x5u);
   messages.push(`fetched X5U ${metadata.data.signature.x5u}`);
@@ -379,15 +366,13 @@ async function fetchAndVerifyContentSignatureCollection(options) {
       serialized,
       `p384ecdsa=${metadata.data.signature.signature}`,
       certChain,
-      signer_name
+      signerName
     );
 
     messages.push(
       `verified content signature for ${bucket}/${collection} with result: ${verified}`
     );
-    messages.push(
-      `telemetry results: ${Telemetry.pretty()}`
-    );
+    messages.push(`telemetry results: ${Telemetry.pretty()}`);
     return {
       verified: verified,
       messages: messages,
@@ -418,10 +403,21 @@ async function fetchAndVerifyContentSignatureCollection(options) {
 }
 
 async function run_test(args, response_cb) {
-  let messages = [];
-
   const fixtureVerificationResult = await verifyContentSignatureFixture();
 
+  await switchEnvironment(args["env"]);
+  const SETTINGS_SERVER = Services.prefs.getCharPref(
+    "services.settings.server"
+  );
+
+  function bucketCollectionPathToTest(path) {
+    return {
+      env: args["env"],
+      bucket: path.split("/")[0],
+      collection: path.split("/")[1],
+    };
+  }
+  const tests = args["collections"].split(",").map(bucketCollectionPathToTest);
 
   let results = [];
   let allVerified = true;
