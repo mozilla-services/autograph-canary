@@ -426,7 +426,6 @@ async function run_test(args, response_cb) {
   const fixtureVerificationResult = await verifyContentSignatureFixture();
   messages.push(`fixture verification result: ${fixtureVerificationResult}`);
 
-  Services.prefs.setCharPref("services.settings.loglevel", "debug");
 
   let results = [];
   let allVerified = true;
@@ -465,8 +464,6 @@ register_command(
       "services.settings.default_bucket",
       "services.blocklist.bucket",
       "services.blocklist.pinning.bucket",
-      // Did we enable logs?
-      "services.settings.loglevel",
       // What URL is megaphone/autopush using?
       "dom.push.serverURL",
     ],
