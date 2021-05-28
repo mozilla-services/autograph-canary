@@ -7,6 +7,7 @@ import coloredlogs
 import io
 import logging
 import os
+import pathlib
 import requests
 import sys
 import tarfile
@@ -23,7 +24,7 @@ module_dir = None
 
 # Initialize coloredlogs
 logging.Formatter.converter = time.gmtime
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__file__)
 coloredlogs.DEFAULT_LOG_FORMAT = (
     "%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s"
 )
@@ -37,7 +38,7 @@ def __create_tempdir(prefix="canary_"):
     :return: Path of temporary directory
     """
     temp_dir = tempfile.mkdtemp(prefix=prefix)
-    logger.debug("Created temp dir `%s`" % temp_dir)
+    logger.debug(f"Created temp dir {temp_dir!r}")
     return temp_dir
 
 
@@ -86,63 +87,40 @@ def run_tests(event, lambda_context, native=False):
     app = get_app(temp_dir, native)
 
     # Spawn a worker.
+    test_files = sorted(path for path in pathlib.Path("./tests").glob(os.environ["TEST_FILES_GLOB"]) if path.is_file())
 
-    # TODO: MDG check args for user specified test path.
-    # TODO: MDG get a path relative to *this script* for the default test path
-    test_path = os.path.abspath("tests")
-
-    script_files = []
-    if os.path.isdir(test_path):
-        children = os.listdir(test_path)
-        script_files = [
-            os.path.abspath(p)
-            for p in filter(
-                os.path.isfile, [os.path.join(test_path, child) for child in children]
-            )
-        ]
-    else:
-        script_files = [test_path]
-
-    # Unless a test fails, we want to exit with a non-error result
-    failure_seen = False
-
-    csig_tests = [
-        {
-            "env": "prod",
-            "bucket": "security-state",
-            "collection": "onecrl",
-            "signer_name": "onecrl.content-signature.mozilla.org",
-        },
-        {
-            "env": "prod",
-            "bucket": "main",
-            "collection": "search-config",
-            "signer_name": "remote-settings.content-signature.mozilla.org",
-        },
-    ]
     addon_test = {
         "signed_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
         "unsigned_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi",
     }
 
-    for script_path in script_files:
-        if script_path.endswith("content_signature_test.js"):
-            run_test_kwargs = dict(tests=csig_tests)
-        elif script_path.endswith("addon_signature_test.js"):
-            run_test_kwargs = dict(env=addon_test)
+    # Unless a test fails, we want to exit with a non-error result
+    failure_seen = False
+
+    for script_path in test_files:
+        if script_path.name == "content_signature_test.js":
+            run_test_kwargs = dict(
+                collections=os.environ["CSIG_COLLECTIONS"], env=os.environ["CSIG_ENV"]
+            )
+            run_test_timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(','))
+        elif script_path.name == "addon_signature_test.js":
+            run_test_kwargs = addon_test
+            run_test_timeout = 5
         else:
             run_test_kwargs = dict()
+            run_test_timeout = 5
 
         profile_dir = __create_tempdir(prefix="profile_")
         w = xw.XPCShellWorker(
             app,
-            script=script_path,
+            script=str(script_path.resolve()),
             profile=profile_dir,
         )
         w.spawn()
         info_response = sync_send(w, xw.Command("get_worker_info", id=1))
 
         response = sync_send(w, xw.Command(mode="run_test", id=2, **run_test_kwargs))
+        time.sleep(run_test_timeout)
         w.terminate()
 
         res_dict = response.as_dict()
@@ -150,12 +128,11 @@ def run_tests(event, lambda_context, native=False):
         # If a test has failed, exit with error status
         if res_dict["success"]:
             print(
-                "SUCCESS: %s executed with result %s"
-                % (script_path, res_dict["success"])
+                f"SUCCESS: {script_path} executed with result {res_dict['success']}"
             )
         else:
             print(
-                "FAIL: %s executed with result %s" % (script_path, res_dict["success"])
+                f"FAIL: {script_path} executed with result {res_dict['success']}"
             )
             failure_seen = True
 

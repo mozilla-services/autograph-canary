@@ -2,13 +2,60 @@
 
 [![CircleCI](https://circleci.com/gh/mozilla-services/autograph-canary/tree/main.svg?style=svg)](https://circleci.com/gh/mozilla-services/autograph-canary/tree/main)
 
-An AWS lambda for running Firefox / Autograph integration tests. This
-exercises the actual Firefox client code via XPConnect, making use of
-the TLS-Canary tooling.
+autograph-canary is [a containerized AWS
+lambda](https://docs.aws.amazon.com/lambda/latest/dg/lambda-images.html)
+for running Firefox integration tests against signed
+[autograph](https://github.com/mozilla-services/autograph/)
+artifacts. It uses XPConnect to exercise Firefox client code against
+signed XPI/Addons and content signtures.
 
-# Usage:
+## Usage
 
-## Command line
+## AWS Lambda
+
+#### Environment Varables
+
+The following environment variables with their default values below
+configure logging verbosity, tests to run, and test targets.
+
+What log level should be used (use INFO for less verbose logging)
+
+```sh
+CANARY_LOG_LEVEL=debug
+```
+
+Which XPCShell test files in `tests/` to run (as matched by [pathlib
+glob][py3_pathlib_glob])
+
+```sh
+TEST_FILES_GLOB="*_test.js"
+```
+
+Which prefs to use for content signature settings server URL, bucket,
+and root hash (`prod` or `stage` with an optional `-preview` suffix
+same as [remotesettings devtools][rsdevtools]).
+
+```sh
+CSIG_ENV=prod
+```
+
+Which content signature collections to verify. Collections must all
+use the same `CSIG_ENV` and be a CSV list formatted as
+"$BUCKET_NAME/$COLLECTION_NAME". Use `bin/list_collections.sh` to list
+publicly available collections.
+
+```sh
+CSIG_COLLECTIONS=blocklists/gfx,blocklists/addons-bloomfilters,blocklists/plugins,blocklists/addons,blocklists/certificates,main/normandy-recipes,main/normandy-recipes-capabilities,main/hijack-blocklists,main/search-config,security-state/onecrl,security-state/intermediates
+```
+
+[py3_pathlib_glob]: https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob
+[rsdevtools]: https://github.com/mozilla-extensions/remote-settings-devtools
+
+#### Event payload
+
+To support running from scheduled events, autograph-canary ignores event payloads.
+
+### Command line
 
 To run the default set of autograph-canary tests:
 
@@ -25,21 +72,3 @@ To run integration tests in the containerized AWS lambda emulator:
 1. Run `make build` to build the canary and emulator containers
 
 1. Run `make integration-test`, which starts the emulator and runs `bin/run_integration_tests.sh`
-
-## AWS lambda
-
-There are a few settings you need to think about when configuring an autograph-canary lambda:
-
-1. Memory. The lambda will download, extract and execute a full build of Firefox. Firefox uses more memory than an AWS Lambda is allocated by default. The lambda with a current (early 2020) version of Firefox runs happily in 1024MB.
-
-2. Environment. The test runner itself does not rely on any specific environment to run - but the tests do. Test configuration is performed through the environment that's passed through from the lambda_context. Inspect the table below on the variables expected by the various tests and ensure these are set appropriately in your deployment:
-
-### Environment Varables
-
-Individual tests will need specific environment variables to be set.
-
-Variable | Description | Used By
----------|-------------|--------
-CANARY_LOG_LEVEL | What log level should be used (default INFO, use DEBUG for more verbose logging) | autograph-canary
-signed_XPI | The URL of a signed XPI for addon signature testing. A signed XPI is needed to ensure that signatures verify correctly and signed addons are correctly installed. | addon_signature_test.js
-unsigned_XPI | The URL of an unsigned XPI for addon signature testing. An unsigned XPI is needed to check that unsigned addons are appropriately rejected by Firefox. | addon_signature_test.js

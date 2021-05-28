@@ -30,6 +30,9 @@ COPY tests ${FUNCTION_DIR}/tests
 FROM python:3.8-buster
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CANARY_LOG_LEVEL=debug
+ENV TEST_FILES_GLOB="*_test.js"
+ENV CSIG_ENV="prod"
+ENV CSIG_COLLECTIONS="blocklists/gfx,blocklists/addons-bloomfilters,blocklists/plugins,blocklists/addons,blocklists/certificates,main/normandy-recipes,main/normandy-recipes-capabilities,main/hijack-blocklists,main/search-config,security-state/onecrl,security-state/intermediates"
 
 # Include global arg in this stage of the build
 ARG FUNCTION_DIR
