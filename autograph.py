@@ -102,10 +102,13 @@ def run_tests(event, lambda_context, native=False):
             run_test_kwargs = dict(
                 collections=os.environ["CSIG_COLLECTIONS"], env=os.environ["CSIG_ENV"]
             )
+            run_test_timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(','))
         elif script_path.name == "addon_signature_test.js":
             run_test_kwargs = addon_test
+            run_test_timeout = 5
         else:
             run_test_kwargs = dict()
+            run_test_timeout = 5
 
         profile_dir = __create_tempdir(prefix="profile_")
         w = xw.XPCShellWorker(
@@ -117,6 +120,7 @@ def run_tests(event, lambda_context, native=False):
         info_response = sync_send(w, xw.Command("get_worker_info", id=1))
 
         response = sync_send(w, xw.Command(mode="run_test", id=2, **run_test_kwargs))
+        time.sleep(run_test_timeout)
         w.terminate()
 
         res_dict = response.as_dict()
