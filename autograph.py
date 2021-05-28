@@ -87,9 +87,6 @@ def run_tests(event, lambda_context, native=False):
     app = get_app(temp_dir, native)
 
     # Spawn a worker.
-
-    # Unless a test fails, we want to exit with a non-error result
-    failure_seen = False
     test_files = sorted(path for path in pathlib.Path("./tests").glob(os.environ["TEST_FILES_GLOB"]) if path.is_file())
 
     csig_tests = [
@@ -110,6 +107,9 @@ def run_tests(event, lambda_context, native=False):
         "signed_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
         "unsigned_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi",
     }
+
+    # Unless a test fails, we want to exit with a non-error result
+    failure_seen = False
 
     for script_path in test_files:
         if script_path.name == "content_signature_test.js":
