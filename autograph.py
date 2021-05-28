@@ -122,23 +122,39 @@ def run_tests(event, lambda_context, native=False):
         )
         w.spawn()
         info_response = sync_send(w, xw.Command("get_worker_info", id=1))
-
+        logger.info(f"running test {str(script_path.resolve())} with {run_test_kwargs}")
         response = sync_send(w, xw.Command(mode="run_test", id=2, **run_test_kwargs))
         time.sleep(run_test_timeout)
         w.terminate()
 
         res_dict = response.as_dict()
 
-        # If a test has failed, exit with error status
-        if res_dict["success"]:
-            print(f"SUCCESS: {script_path} executed with result {res_dict['success']}")
+        # print log lines when possible
+        if (
+            "result" in res_dict
+            and "results" in res_dict["result"]
+            and isinstance(res_dict["result"]["results"], list)
+        ):
+            for result in res_dict["result"]["results"]:
+                if "messages" in result and isinstance(result["messages"], list):
+                    for line in result["messages"]:
+                        logger.info(line)
+                else:
+                    logger.info(result)
         else:
-            print(f"FAIL: {script_path} executed with result {res_dict['success']}")
-            failure_seen = True
+            logger.info(res_dict)
 
-        print(res_dict)
-        print("Worker info:")
-        print(info_response.as_dict())
+        logger.info(f"Worker info: {info_response.as_dict()}")
+
+        if res_dict["success"]:
+            logger.info(
+                f"SUCCESS: {script_path} executed with result {res_dict['success']}"
+            )
+        else:
+            logger.info(
+                f"FAIL: {script_path} executed with result {res_dict['success']}"
+            )
+            failure_seen = True
 
     if not failure_seen:
         logger.info("Tests passed successfully")
