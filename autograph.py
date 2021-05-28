@@ -87,11 +87,15 @@ def run_tests(event, lambda_context, native=False):
     app = get_app(temp_dir, native)
 
     # Spawn a worker.
-    test_files = sorted(path for path in pathlib.Path("./tests").glob(os.environ["TEST_FILES_GLOB"]) if path.is_file())
+    test_files = sorted(
+        path
+        for path in pathlib.Path("./tests").glob(os.environ["TEST_FILES_GLOB"])
+        if path.is_file()
+    )
 
     addon_test = {
-        "signed_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
-        "unsigned_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi",
+        "signed_XPI": "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
+        "unsigned_XPI": "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi",
     }
 
     # Unless a test fails, we want to exit with a non-error result
@@ -102,7 +106,7 @@ def run_tests(event, lambda_context, native=False):
             run_test_kwargs = dict(
                 collections=os.environ["CSIG_COLLECTIONS"], env=os.environ["CSIG_ENV"]
             )
-            run_test_timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(','))
+            run_test_timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(","))
         elif script_path.name == "addon_signature_test.js":
             run_test_kwargs = addon_test
             run_test_timeout = 5
@@ -127,13 +131,9 @@ def run_tests(event, lambda_context, native=False):
 
         # If a test has failed, exit with error status
         if res_dict["success"]:
-            print(
-                f"SUCCESS: {script_path} executed with result {res_dict['success']}"
-            )
+            print(f"SUCCESS: {script_path} executed with result {res_dict['success']}")
         else:
-            print(
-                f"FAIL: {script_path} executed with result {res_dict['success']}"
-            )
+            print(f"FAIL: {script_path} executed with result {res_dict['success']}")
             failure_seen = True
 
         print(res_dict)
