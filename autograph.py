@@ -129,7 +129,7 @@ def run_tests(event, lambda_context, native=False):
         if script_path.endswith("content_signature_test.js"):
             run_test_kwargs = dict(tests=csig_tests)
         elif script_path.endswith("addon_signature_test.js"):
-            run_test_kwargs = dict(env=addon_test)
+            run_test_kwargs = addon_test
         else:
             run_test_kwargs = dict()
 

@@ -113,10 +113,10 @@ var run_test = async function (args, response_cb) {
 
     debug_messages.push(JSON.stringify(args));
 
-    let signed_addon_url = args["env"]["signed_XPI"];
+    let signed_addon_url = args["signed_XPI"];
     let signed_install = await AddonManager.getInstallForURL(signed_addon_url);
 
-    let unsigned_addon_url = args["env"]["unsigned_XPI"];
+    let unsigned_addon_url = args["unsigned_XPI"];
     let unsigned_install = await AddonManager.getInstallForURL(
       unsigned_addon_url
     );
