@@ -49,12 +49,12 @@ def get_app(temp_dir, native):
         return fx_ex.extract(test_archive, temp_dir)
     else:
         url = fx_dl.FirefoxDownloader.get_download_url("nightly")
-        print("Fetching nightly from %s" % url)
+        logger.info(f"fetching nightly from {url}")
         dc = bz2.BZ2Decompressor()
         r = requests.get(url)
         f = io.BytesIO(dc.decompress(r.content))
         ta = tarfile.open(fileobj=f)
-        print("extracting tar file to %s" % temp_dir)
+        logger.info(f"extracting tar file to {temp_dir}")
         ta.extractall(path=temp_dir)
         return fx_app.FirefoxApp(temp_dir)
 
