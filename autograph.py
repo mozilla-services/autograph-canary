@@ -49,12 +49,12 @@ def get_app(temp_dir, native):
         return fx_ex.extract(test_archive, temp_dir)
     else:
         url = fx_dl.FirefoxDownloader.get_download_url("nightly")
-        print("Fetching nightly from %s" % url)
+        logger.info(f"fetching nightly from {url}")
         dc = bz2.BZ2Decompressor()
         r = requests.get(url)
         f = io.BytesIO(dc.decompress(r.content))
         ta = tarfile.open(fileobj=f)
-        print("extracting tar file to %s" % temp_dir)
+        logger.info(f"extracting tar file to {temp_dir}")
         ta.extractall(path=temp_dir)
         return fx_app.FirefoxApp(temp_dir)
 
@@ -87,11 +87,15 @@ def run_tests(event, lambda_context, native=False):
     app = get_app(temp_dir, native)
 
     # Spawn a worker.
-    test_files = sorted(path for path in pathlib.Path("./tests").glob(os.environ["TEST_FILES_GLOB"]) if path.is_file())
+    test_files = sorted(
+        path
+        for path in pathlib.Path("./tests").glob(os.environ["TEST_FILES_GLOB"])
+        if path.is_file()
+    )
 
     addon_test = {
-        "signed_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
-        "unsigned_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi",
+        "signed_XPI": "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
+        "unsigned_XPI": "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi",
     }
 
     # Unless a test fails, we want to exit with a non-error result
@@ -102,7 +106,7 @@ def run_tests(event, lambda_context, native=False):
             run_test_kwargs = dict(
                 collections=os.environ["CSIG_COLLECTIONS"], env=os.environ["CSIG_ENV"]
             )
-            run_test_timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(','))
+            run_test_timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(","))
         elif script_path.name == "addon_signature_test.js":
             run_test_kwargs = addon_test
             run_test_timeout = 5
@@ -118,27 +122,39 @@ def run_tests(event, lambda_context, native=False):
         )
         w.spawn()
         info_response = sync_send(w, xw.Command("get_worker_info", id=1))
-
+        logger.info(f"running test {str(script_path.resolve())} with {run_test_kwargs}")
         response = sync_send(w, xw.Command(mode="run_test", id=2, **run_test_kwargs))
         time.sleep(run_test_timeout)
         w.terminate()
 
         res_dict = response.as_dict()
 
-        # If a test has failed, exit with error status
+        # print log lines when possible
+        if (
+            "result" in res_dict
+            and "results" in res_dict["result"]
+            and isinstance(res_dict["result"]["results"], list)
+        ):
+            for result in res_dict["result"]["results"]:
+                if "messages" in result and isinstance(result["messages"], list):
+                    for line in result["messages"]:
+                        logger.info(line)
+                else:
+                    logger.info(result)
+        else:
+            logger.info(res_dict)
+
+        logger.info(f"Worker info: {info_response.as_dict()}")
+
         if res_dict["success"]:
-            print(
+            logger.info(
                 f"SUCCESS: {script_path} executed with result {res_dict['success']}"
             )
         else:
-            print(
+            logger.info(
                 f"FAIL: {script_path} executed with result {res_dict['success']}"
             )
             failure_seen = True
-
-        print(res_dict)
-        print("Worker info:")
-        print(info_response.as_dict())
 
     if not failure_seen:
         logger.info("Tests passed successfully")
