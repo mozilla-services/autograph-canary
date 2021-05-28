@@ -319,7 +319,6 @@ class Telemetry {
   }
 }
 
-
 // fetchAndVerifyContentSignatureCollection fetches and verifies a
 // remote settings collection
 //
@@ -336,20 +335,20 @@ async function fetchAndVerifyContentSignatureCollection(options) {
   );
   const METADATA_URL = `${SETTINGS_SERVER}/buckets/${bucket}/collections/${collection}`;
   const RECORD_URL = `${METADATA_URL}/records`;
-  messages.push(`testing ${bucket}/${collection}`);
+  messages.push(`testing ${bucket}/${collection} with signer ${signer_name}`);
 
   // parallelize metadata and record fetches
   const [res, recordResponse] = await Promise.all([
     fetch(METADATA_URL, { redirect: "follow" }),
     fetch(RECORD_URL),
   ]);
-  messages.push(`fetched ${METADATA_URL}`);
-  messages.push(`fetched ${RECORD_URL}`);
+  messages.push(`fetched metadata ${METADATA_URL}`);
+  messages.push(`fetched records ${RECORD_URL}`);
   const metadata = await res.json();
   const records = await recordResponse.json();
 
   const x5uResponse = await fetch(metadata.data.signature.x5u);
-  messages.push(`fetched ${metadata.data.signature.x5u}`);
+  messages.push(`fetched X5U ${metadata.data.signature.x5u}`);
   const certChain = await x5uResponse.text();
 
   let last_modified = 0;
@@ -387,9 +386,7 @@ async function fetchAndVerifyContentSignatureCollection(options) {
       `verified content signature for ${bucket}/${collection} with result: ${verified}`
     );
     messages.push(
-      `telemetry results: ${Telemetry.pretty()}\nJSON: ${JSON.stringify(
-        Telemetry.snapshot()
-      )}`
+      `telemetry results: ${Telemetry.pretty()}`
     );
     return {
       verified: verified,
@@ -424,13 +421,11 @@ async function run_test(args, response_cb) {
   let messages = [];
 
   const fixtureVerificationResult = await verifyContentSignatureFixture();
-  messages.push(`fixture verification result: ${fixtureVerificationResult}`);
 
 
   let results = [];
   let allVerified = true;
-  for (const test of args["tests"]) {
-    // print(`testing ${JSON.stringify(test)}`);
+  for (const test of tests) {
     const result = await fetchAndVerifyContentSignatureCollection(test);
     results.push(result);
     if (!result.verified) {
@@ -441,7 +436,6 @@ async function run_test(args, response_cb) {
     origin: "run_test",
     results: results,
     fixture_verified: fixtureVerificationResult,
-    messages: messages,
   });
 }
 
