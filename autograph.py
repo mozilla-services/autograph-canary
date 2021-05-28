@@ -24,7 +24,7 @@ module_dir = None
 
 # Initialize coloredlogs
 logging.Formatter.converter = time.gmtime
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__file__)
 coloredlogs.DEFAULT_LOG_FORMAT = (
     "%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s"
 )
