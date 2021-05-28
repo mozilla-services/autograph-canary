@@ -38,7 +38,7 @@ def __create_tempdir(prefix="canary_"):
     :return: Path of temporary directory
     """
     temp_dir = tempfile.mkdtemp(prefix=prefix)
-    logger.debug("Created temp dir `%s`" % temp_dir)
+    logger.debug(f"Created temp dir {temp_dir!r}")
     return temp_dir
 
 
@@ -128,12 +128,11 @@ def run_tests(event, lambda_context, native=False):
         # If a test has failed, exit with error status
         if res_dict["success"]:
             print(
-                "SUCCESS: %s executed with result %s"
-                % (script_path, res_dict["success"])
+                f"SUCCESS: {script_path} executed with result {res_dict['success']}"
             )
         else:
             print(
-                "FAIL: %s executed with result %s" % (script_path, res_dict["success"])
+                f"FAIL: {script_path} executed with result {res_dict['success']}"
             )
             failure_seen = True
 
