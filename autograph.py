@@ -7,6 +7,7 @@ import coloredlogs
 import io
 import logging
 import os
+import pathlib
 import requests
 import sys
 import tarfile
@@ -87,24 +88,9 @@ def run_tests(event, lambda_context, native=False):
 
     # Spawn a worker.
 
-    # TODO: MDG check args for user specified test path.
-    # TODO: MDG get a path relative to *this script* for the default test path
-    test_path = os.path.abspath("tests")
-
-    script_files = []
-    if os.path.isdir(test_path):
-        children = os.listdir(test_path)
-        script_files = [
-            os.path.abspath(p)
-            for p in filter(
-                os.path.isfile, [os.path.join(test_path, child) for child in children]
-            )
-        ]
-    else:
-        script_files = [test_path]
-
     # Unless a test fails, we want to exit with a non-error result
     failure_seen = False
+    test_files = sorted(path for path in pathlib.Path("./tests").glob(os.environ["TEST_FILES_GLOB"]) if path.is_file())
 
     csig_tests = [
         {
@@ -125,10 +111,10 @@ def run_tests(event, lambda_context, native=False):
         "unsigned_XPI" : "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi",
     }
 
-    for script_path in script_files:
-        if script_path.endswith("content_signature_test.js"):
+    for script_path in test_files:
+        if script_path.name == "content_signature_test.js":
             run_test_kwargs = dict(tests=csig_tests)
-        elif script_path.endswith("addon_signature_test.js"):
+        elif script_path.name == "addon_signature_test.js":
             run_test_kwargs = addon_test
         else:
             run_test_kwargs = dict()
@@ -136,7 +122,7 @@ def run_tests(event, lambda_context, native=False):
         profile_dir = __create_tempdir(prefix="profile_")
         w = xw.XPCShellWorker(
             app,
-            script=script_path,
+            script=str(script_path.resolve()),
             profile=profile_dir,
         )
         w.spawn()

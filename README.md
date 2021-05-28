@@ -18,12 +18,15 @@ signed XPI/Addons and content signtures.
 The following environment variables configure logging, tests to run,
 and test targets:
 
-Variable         | Default     | Description                                                                      |
------------------|-------------|----------------------------------------------------------------------------------|
-CANARY_LOG_LEVEL | debug       | What log level should be used (use INFO for less verbose logging)                |
+Variable         | Default     | Description                                                                                      |
+-----------------|-------------|--------------------------------------------------------------------------------------------------|
+CANARY_LOG_LEVEL | debug       | What log level should be used (use INFO for less verbose logging)                                |
+TEST_FILES_GLOB  | *_test.js   | Which XPCShell test files in `tests/` to run (as matched by [pathlib glob][py3_pathlib_glob])    |
 
 
-### Event payload
+[py3_pathlib_glob]: https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob
+
+#### Event payload
 
 To support running from scheduled events, autograph-canary ignores event payloads.
 
