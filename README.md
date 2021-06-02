@@ -31,6 +31,21 @@ glob][py3_pathlib_glob]):
 TEST_FILES_GLOB="*_test.js"
 ```
 
+##### Addon / XPI Signature Verification
+
+Which PKI root to verify addons against. Defaults to `prod`, use
+`stage` to set `xpinstall.signatures.dev-root` to true (Fx Nightly
+only):
+
+```sh
+XPI_ENV=prod
+```
+
+Which XPI URLs to download and install as a CSV:
+
+```sh
+XPI_URLS=https://addons.mozilla.org/firefox/downloads/file/3772109/facebook_container-2.2.1-fx.xpi,https://addons.mozilla.org/firefox/downloads/file/3713375/firefox_multi_account_containers-7.3.0-fx.xpi,https://addons.mozilla.org/firefox/downloads/file/3768975/ublock_origin-1.35.2-an+fx.xpi
+```
 
 ##### Content Signature Verification
 
