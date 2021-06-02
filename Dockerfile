@@ -29,6 +29,10 @@ COPY tests ${FUNCTION_DIR}/tests
 
 FROM python:3.8-buster
 ENV DEBIAN_FRONTEND=noninteractive
+
+# run firefox in headless mode
+ENV MOZ_HEADLESS=1
+
 ENV CANARY_LOG_LEVEL=debug
 ENV TEST_FILES_GLOB="*_test.js"
 ENV CSIG_ENV="prod"
