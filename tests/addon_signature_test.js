@@ -76,31 +76,26 @@ var promise_startup = async function () {
   );
 };
 
-var test_addon_install = async function (
-  install,
-  should_pass,
-  expected_result,
-  debug_messages
-) {
+async function testAddonInstall(install, shouldPass, expectedResult, messages) {
   try {
     await install.install();
   } catch (_error) {
-    if (should_pass) {
-      debug_messages.push("should pass but has thrown");
+    if (shouldPass) {
+      messages.push("should pass but has thrown");
       return false;
     } else {
-      return expected_result == install.error;
+      return expectedResult == install.error;
     }
   }
 
-  if (should_pass) {
-    debug_messages.push("Expected to verify; comparing signedState");
-    return expected_result == install.addon.signedState;
+  if (shouldPass) {
+    messages.push("Expected to verify; comparing signedState");
+    return expectedResult == install.addon.signedState;
   } else {
-    debug_messages.push("Not expected to verify");
+    messages.push("Not expected to verify");
     return false;
   }
-};
+}
 
 var run_test = async function (args, response_cb) {
   let debug_messages = [];
