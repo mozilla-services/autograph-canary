@@ -97,54 +97,77 @@ async function testAddonInstall(install, shouldPass, expectedResult, messages) {
   }
 }
 
-var run_test = async function (args, response_cb) {
-  let debug_messages = [];
+// verifyAddonFixtures installs a signed XPI to verify correctly
+// signed addons are correctly installed and an unsigned XPI to verify
+// Firefox does not install unsigned addons
+async function verifyAddonFixtures(messages) {
+  // TODO: inline test fixtures and run them
+  const signedAddonURL =
+    "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi";
+  const unsignedAddonURL =
+    "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi";
 
-  try {
-    await promise_startup();
+  const [signedInstall, unsignedInstall] = await Promise.all([
+    AddonManager.getInstallForURL(signedAddonURL),
+    AddonManager.getInstallForURL(unsignedAddonURL),
+  ]);
+  messages.push(
+    `getInstallForURL completed for fixtures ${signedAddonURL} ${unsignedAddonURL}`
+  );
 
-    // TODO: MDG - Take the unsigned addon file from the filesystem (relative lambda path).
-    debug_messages.push("args are....");
-
-    debug_messages.push(JSON.stringify(args));
-
-    let signed_addon_url = args["signed_XPI"];
-    let signed_install = await AddonManager.getInstallForURL(signed_addon_url);
-
-    let unsigned_addon_url = args["unsigned_XPI"];
-    let unsigned_install = await AddonManager.getInstallForURL(
-      unsigned_addon_url
-    );
-
-    let unsigned_addon_pass = await test_addon_install(
-      unsigned_install,
-      false,
-      AddonManager.ERROR_SIGNEDSTATE_REQUIRED,
-      debug_messages
-    );
-    if (!unsigned_addon_pass) {
-      debug_messages.push("unsigned addon test failed");
-    }
-    let signed_addon_pass = await test_addon_install(
-      signed_install,
+  const [signedAddonPass, unsignedAddonPass] = await Promise.all([
+    testAddonInstall(
+      signedInstall,
       true,
       AddonManager.SIGNEDSTATE_SIGNED,
-      debug_messages
-    );
-    if (!signed_addon_pass) {
-      debug_messages.push("signed addon test failed");
-    }
+      messages
+    ),
+    testAddonInstall(
+      unsignedInstall,
+      false,
+      AddonManager.ERROR_SIGNEDSTATE_REQUIRED,
+      messages
+    ),
+  ]);
+  if (!unsignedAddonPass) {
+    messages.push("unsigned addon test failed");
+  }
+  if (!signedAddonPass) {
+    messages.push("signed addon test failed");
+  }
+  return [
+    unsignedAddonPass && signedAddonPass,
+    {
+      signed: signedAddonPass,
+      unsigned: unsignedAddonPass,
+    },
+  ];
+}
 
-    let test_passes = unsigned_addon_pass && signed_addon_pass;
+var run_test = async function (args, response_cb) {
+  let messages = [];
 
-    return response_cb(test_passes, {
+  await promise_startup();
+
+  const [fixtureVerificationResult, fixtureVerificationDetails] =
+    await verifyAddonFixtures(messages);
+
+  try {
+    // TODO: add table based tests with an env pref; expecting verification success for a list of URLs
+    const testPasses = true;
+
+    return response_cb(testPasses, {
       origin: "run_test",
-      debug_messages: debug_messages,
+      messages: messages,
+      fixture_verified: fixtureVerificationResult,
+      fixture_verified_details: fixtureVerificationDetails,
     });
   } catch (e) {
     return response_cb(false, {
       origin: "run_test",
-      debug_messages: debug_messages,
+      messages: messages,
+      fixture_verified: fixtureVerificationResult,
+      fixture_verified_details: fixtureVerificationDetails,
     });
   }
 };
