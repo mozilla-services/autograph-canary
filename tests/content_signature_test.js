@@ -92,7 +92,10 @@ async function switchEnvironment(env) {
   }
 }
 
-// verifyContentSignatureFixture is a modified version of
+// verifyContentSignatureFixture confirms the content signature
+// verifier successfully verifies a local test fixture.
+//
+// It is a modified version of
 // https://searchfox.org/mozilla-central/source/services/settings/test/unit/test_remote_settings_signatures.js
 //
 async function verifyContentSignatureFixture() {

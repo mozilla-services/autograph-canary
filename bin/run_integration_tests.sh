@@ -24,3 +24,11 @@ docker-compose exec emulator "/usr/local/bin/run_canary.sh"
 docker-compose logs emulator
 # grep has exit code 1 if no lines were selected
 test "$(docker-compose logs --no-log-prefix emulator | grep 'exited with error:' || echo -n $?)" = "1"
+# also fail if a JS error occurs
+# surface errors
+
+echo "checking for JS errors:"
+docker-compose logs --no-log-prefix emulator | grep 'Reader tlscanary.tools.xpcshell_worker JS error from worker' || true
+
+echo "checking for invalid output:"
+docker-compose logs --no-log-prefix emulator | grep 'Reader tlscanary.tools.xpcshell_worker Invalid output from worker' || true

@@ -4,6 +4,14 @@
 
 "use strict";
 
+// addon_signature_test.js installs XPIs
+//
+// Example args and result (as the autograph.py xpcshell sees):
+//
+// {"env": "prod", "xpi_urls": "https://addons.mozilla.org/firefox/downloads/file/3772109/facebook_container-2.2.1-fx.xpi,https://addons.mozilla.org/firefox/downloads/file/3713375/firefox_multi_account_containers-7.3.0-fx.xpi,https://addons.mozilla.org/firefox/downloads/file/3768975/ublock_origin-1.35.2-an+fx.xpi"}
+// =>
+// {"id":2,"worker_id":456387343069546500,"original_cmd":{"id":2,"mode":"run_test","args":{"xpi_urls":"https://addons.mozilla.org/firefox/downloads/file/3772109/facebook_container-2.2.1-fx.xpi,https://addons.mozilla.org/firefox/downloads/file/3713375/firefox_multi_account_containers-7.3.0-fx.xpi,https://addons.mozilla.org/firefox/downloads/file/3768975/ublock_origin-1.35.2-an+fx.xpi","env":"prod"}},"success":true,"result":{"origin":"run_test","result_details":[{"result":true,"url":"https://addons.mozilla.org/firefox/downloads/file/3772109/facebook_container-2.2.1-fx.xpi"},{"result":true,"url":"https://addons.mozilla.org/firefox/downloads/file/3713375/firefox_multi_account_containers-7.3.0-fx.xpi"},{"result":true,"url":"https://addons.mozilla.org/firefox/downloads/file/3768975/ublock_origin-1.35.2-an+fx.xpi"}],"messages":["promiseStartup completed","getInstallForURL completed for fixtures https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi","Expected to verify; comparing signedState","verified fixtures true with details: {\"signed\":true,\"unsigned\":true}","testing 3 XPIs","getInstallForURL completed for 3 addons","Expected to verify; comparing signedState","Expected to verify; comparing signedState","Expected to verify; comparing signedState","verified installs for 3 of 3 provided addons"],"fixture_verified":true,"fixture_verified_details":{"signed":true,"unsigned":true}},"command_time":1622657937581,"response_time":1622657944842}
+
 var _Services = ChromeUtils.import(
   "resource://gre/modules/Services.jsm",
   null
@@ -32,7 +40,12 @@ const { FileUtils } = ChromeUtils.import(
   "resource://gre/modules/FileUtils.jsm"
 );
 
-var promise_startup = async function () {
+// promiseStartup initializes the addon service and managers and waits
+// for addons to finish starting
+//
+// copied from https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/internal/AddonTestUtils.jsm#896
+//
+async function promiseStartup() {
   ExtensionAddonObserver.init();
 
   let XPIScope = ChromeUtils.import(
@@ -74,84 +87,143 @@ var promise_startup = async function () {
       (addon) => addon.startupPromise
     )
   );
-};
+}
 
-var test_addon_install = async function (
-  install,
-  should_pass,
-  expected_result,
-  debug_messages
-) {
+// switchEnvironment sets preferences to switch from one environment to another.
+//
+// prod or stage
+//
+async function switchEnvironment(env) {
+  if (env.includes("prod")) {
+    Services.prefs.setBoolPref("xpinstall.signatures.dev-root", false);
+  } else if (env.includes("stage")) {
+    Services.prefs.setBoolPref("xpinstall.signatures.dev-root", true);
+  } else {
+    throw `Unrecognized addons environment: ${env}`;
+  }
+}
+
+async function testAddonInstall(install, shouldPass, expectedResult, messages) {
   try {
     await install.install();
   } catch (_error) {
-    if (should_pass) {
-      debug_messages.push("should pass but has thrown");
+    if (shouldPass) {
+      messages.push("should pass but has thrown");
       return false;
     } else {
-      return expected_result == install.error;
+      return expectedResult == install.error;
     }
   }
 
-  if (should_pass) {
-    debug_messages.push("Expected to verify; comparing signedState");
-    return expected_result == install.addon.signedState;
+  if (shouldPass) {
+    messages.push("Expected to verify; comparing signedState");
+    return expectedResult == install.addon.signedState;
   } else {
-    debug_messages.push("Not expected to verify");
+    messages.push("Not expected to verify");
     return false;
   }
-};
+}
 
-var run_test = async function (args, response_cb) {
-  let debug_messages = [];
+// verifyAddonFixtures installs a signed XPI to verify correctly
+// signed addons are correctly installed and an unsigned XPI to verify
+// Firefox does not install unsigned addons
+async function verifyAddonFixtures(messages) {
+  // TODO: inline test fixtures and run them
+  const signedAddonURL =
+    "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi";
+  const unsignedAddonURL =
+    "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi";
 
-  try {
-    await promise_startup();
+  const [signedInstall, unsignedInstall] = await Promise.all([
+    AddonManager.getInstallForURL(signedAddonURL),
+    AddonManager.getInstallForURL(unsignedAddonURL),
+  ]);
+  messages.push(
+    `getInstallForURL completed for fixtures ${signedAddonURL} ${unsignedAddonURL}`
+  );
 
-    // TODO: MDG - Take the unsigned addon file from the filesystem (relative lambda path).
-    debug_messages.push("args are....");
-
-    debug_messages.push(JSON.stringify(args));
-
-    let signed_addon_url = args["signed_XPI"];
-    let signed_install = await AddonManager.getInstallForURL(signed_addon_url);
-
-    let unsigned_addon_url = args["unsigned_XPI"];
-    let unsigned_install = await AddonManager.getInstallForURL(
-      unsigned_addon_url
-    );
-
-    let unsigned_addon_pass = await test_addon_install(
-      unsigned_install,
-      false,
-      AddonManager.ERROR_SIGNEDSTATE_REQUIRED,
-      debug_messages
-    );
-    if (!unsigned_addon_pass) {
-      debug_messages.push("unsigned addon test failed");
-    }
-    let signed_addon_pass = await test_addon_install(
-      signed_install,
+  const [signedAddonPass, unsignedAddonPass] = await Promise.all([
+    testAddonInstall(
+      signedInstall,
       true,
       AddonManager.SIGNEDSTATE_SIGNED,
-      debug_messages
-    );
-    if (!signed_addon_pass) {
-      debug_messages.push("signed addon test failed");
-    }
-
-    let test_passes = unsigned_addon_pass && signed_addon_pass;
-
-    return response_cb(test_passes, {
-      origin: "run_test",
-      debug_messages: debug_messages,
-    });
-  } catch (e) {
-    return response_cb(false, {
-      origin: "run_test",
-      debug_messages: debug_messages,
-    });
+      messages
+    ),
+    testAddonInstall(
+      unsignedInstall,
+      false,
+      AddonManager.ERROR_SIGNEDSTATE_REQUIRED,
+      messages
+    ),
+  ]);
+  if (!unsignedAddonPass) {
+    messages.push("unsigned addon test failed");
   }
+  if (!signedAddonPass) {
+    messages.push("signed addon test failed");
+  }
+  return [
+    unsignedAddonPass && signedAddonPass,
+    {
+      signed: signedAddonPass,
+      unsigned: unsignedAddonPass,
+    },
+  ];
+}
+
+var run_test = async function (args, response_cb) {
+  let messages = [];
+
+  await promiseStartup();
+  messages.push("promiseStartup completed");
+
+  const [fixtureVerificationResult, fixtureVerificationDetails] =
+    await verifyAddonFixtures(messages);
+  messages.push(
+    `verified fixtures ${fixtureVerificationResult} with details: ${JSON.stringify(
+      fixtureVerificationDetails
+    )}`
+  );
+
+  await switchEnvironment(args["env"]);
+  const xpiURLs = args["xpi_urls"].split(",");
+  messages.push(`testing ${xpiURLs.length} XPIs`);
+
+  const installs = await Promise.all(
+    xpiURLs.map((xpiURL) => AddonManager.getInstallForURL(xpiURL))
+  );
+  messages.push(`getInstallForURL completed for ${xpiURLs.length} addons`);
+
+  const verificationResults = await Promise.all(
+    installs.map((install) =>
+      testAddonInstall(install, true, AddonManager.SIGNEDSTATE_SIGNED, messages)
+    )
+  );
+  messages.push(
+    `verified installs for ${verificationResults.length} of ${xpiURLs.length} provided addons`
+  );
+  const verificationResultsWithXPIURL = Array.from(
+    verificationResults,
+    (result, i) => {
+      return { result: result, url: xpiURLs[i] };
+    }
+  );
+
+  let allVerified = true;
+  for (const result of verificationResults) {
+    if (result !== true) {
+      allVerified = false;
+      break;
+    }
+  }
+
+  return response_cb(allVerified, {
+    origin: "run_test",
+    result_details: verificationResultsWithXPIURL,
+    messages: messages,
+    fixture_verified: fixtureVerificationResult,
+    fixture_verified_details: fixtureVerificationDetails,
+  });
 };
 
 register_command("run_test", run_test);

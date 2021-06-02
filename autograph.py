@@ -93,11 +93,6 @@ def run_tests(event, lambda_context, native=False):
         if path.is_file()
     )
 
-    addon_test = {
-        "signed_XPI": "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
-        "unsigned_XPI": "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi",
-    }
-
     # Unless a test fails, we want to exit with a non-error result
     failure_seen = False
 
@@ -108,8 +103,8 @@ def run_tests(event, lambda_context, native=False):
             )
             run_test_timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(","))
         elif script_path.name == "addon_signature_test.js":
-            run_test_kwargs = addon_test
-            run_test_timeout = 5
+            run_test_kwargs = dict(xpi_urls=os.environ["XPI_URLS"], env=os.environ["XPI_ENV"])
+            run_test_timeout = 3 * len(os.environ["XPI_URLS"].split(","))
         else:
             run_test_kwargs = dict()
             run_test_timeout = 5
@@ -118,6 +113,7 @@ def run_tests(event, lambda_context, native=False):
         w = xw.XPCShellWorker(
             app,
             script=str(script_path.resolve()),
+            # head_script=os.path.join(os.path.abspath("."), "head.js"),
             profile=profile_dir,
         )
         w.spawn()
@@ -136,7 +132,7 @@ def run_tests(event, lambda_context, native=False):
             and isinstance(res_dict["result"]["results"], list)
         ):
             for result in res_dict["result"]["results"]:
-                if "messages" in result and isinstance(result["messages"], list):
+                if isinstance(result, dict) and "messages" in result and isinstance(result["messages"], list):
                     for line in result["messages"]:
                         logger.info(line)
                 else:
