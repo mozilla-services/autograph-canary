@@ -93,11 +93,6 @@ def run_tests(event, lambda_context, native=False):
         if path.is_file()
     )
 
-    addon_test = {
-        "signed_XPI": "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/signed1.xpi",
-        "unsigned_XPI": "https://searchfox.org/mozilla-central/source/toolkit/mozapps/extensions/test/xpcshell/data/signing_checks/unsigned.xpi",
-    }
-
     # Unless a test fails, we want to exit with a non-error result
     failure_seen = False
 
@@ -108,7 +103,7 @@ def run_tests(event, lambda_context, native=False):
             )
             run_test_timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(","))
         elif script_path.name == "addon_signature_test.js":
-            run_test_kwargs = addon_test
+            run_test_kwargs = dict()
             run_test_timeout = 5
         else:
             run_test_kwargs = dict()
