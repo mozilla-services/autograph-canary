@@ -17,6 +17,9 @@ jobs:
       - checkout
       - setup_remote_docker
       - run:
+          name: write version.json
+          command: ./version.sh
+      - run:
           name: build images
           command: make build
       - run:
