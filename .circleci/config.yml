@@ -6,6 +6,14 @@ jobs:
     docker:
       - image: circleci/python:3.8-buster
     steps:
+      - run:
+          name: Login to Dockerhub
+          command: |
+            if [ "${DOCKER_USER}" == "" ] || [ "${DOCKER_PASS}" == "" ]; then
+              echo "Skipping Login to Dockerhub, credentials not available."
+            else
+              echo "${DOCKER_PASS}" | docker login -u="${DOCKER_USER}" --password-stdin
+            fi
       - checkout
       - setup_remote_docker
       - run:
@@ -28,11 +36,50 @@ jobs:
           paths:
             - /tmp/cache/docker.tgz
 
+  deploy:
+    docker:
+      - image: docker:18.06.3-ce
+    steps:
+      - setup_remote_docker
+      - restore_cache:
+          key: v1-{{.Branch}}
+      - run:
+          name: Restore Docker image cache
+          command: gunzip -c /tmp/cache/docker.tgz | docker load
+
+      - run:
+          name: Deploy to Dockerhub
+          command: |
+            # deploy main
+            if [ "${CIRCLE_BRANCH}" == "main" ]; then
+              docker login -u $DOCKER_USER -p $DOCKER_PASS
+              docker tag autograph-canary ${DOCKERHUB_REPO}:latest
+              docker push ${DOCKERHUB_REPO}:latest
+            elif  [ ! -z "${CIRCLE_TAG}" ]; then
+            # deploy a release tag...
+              docker login -u $DOCKER_USER -p $DOCKER_PASS
+              echo "${DOCKERHUB_REPO}:${CIRCLE_TAG}"
+              docker tag autograph-canary "${DOCKERHUB_REPO}:${CIRCLE_TAG}"
+              docker images
+              docker push "${DOCKERHUB_REPO}:${CIRCLE_TAG}"
+            fi
 
 workflows:
-  build-integration-test:
+  version: 2
+
+  build-integration-test-deploy:
     jobs:
       - build-integration-test:
           filters:
             tags:
               only: /.*/
+
+      - deploy:
+          requires:
+            - build-integration-test
+          filters:
+            tags:
+              # only upload the docker container on semver tags
+              only: /[0-9]\.[0-9]+\.[0-9]+/
+            branches:
+              only: main
