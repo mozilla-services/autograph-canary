@@ -27,8 +27,6 @@ RUN pip install --target ${FUNCTION_DIR} -r ${FUNCTION_DIR}/requirements.txt
 ADD autograph.py ${FUNCTION_DIR}
 COPY tests ${FUNCTION_DIR}/tests
 
-ADD version.json ${FUNCTION_DIR}
-
 FROM python:3.8-buster
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -54,6 +52,10 @@ RUN apt-get update \
 
 # Set working directory to function root directory
 WORKDIR ${FUNCTION_DIR}
+
+# add version.json for dockerflow
+RUN mkdir -p /app/
+ADD version.json /app/
 
 # Copy in the built dependencies
 COPY --from=build-image ${FUNCTION_DIR} ${FUNCTION_DIR}
