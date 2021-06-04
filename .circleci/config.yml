@@ -6,7 +6,7 @@
 #
 version: 2.1
 jobs:
-  build-integration-test:
+  build-integration-test-deploy:
     docker:
       - image: circleci/python:3.8-buster
     steps:
@@ -29,31 +29,6 @@ jobs:
       - run:
           name: run integration tests
           command: make integration-test
-      # save the built docker container to CircleCI's cache since
-      # CircleCI Workflows do not have the same remote docker
-      # instance.
-      - run:
-          name: docker save built images
-          no_output_timeout: 30m
-          command: |
-            mkdir -p /tmp/cache
-            docker save "autograph-canary" | gzip -c > /tmp/cache/docker.tgz
-      - save_cache:
-          key: v1-{{ .Branch }}-{{ epoch }}
-          paths:
-            - /tmp/cache/docker.tgz
-
-  deploy:
-    docker:
-      - image: docker:18.06.3-ce
-    steps:
-      - setup_remote_docker
-      - restore_cache:
-          key: v1-{{.Branch}}
-      - run:
-          name: Restore Docker image cache
-          command: gunzip -c /tmp/cache/docker.tgz | docker load
-
       - run:
           name: Deploy to Dockerhub
           command: |
@@ -71,22 +46,14 @@ jobs:
               docker push "${DOCKERHUB_REPO}:${CIRCLE_TAG}"
             fi
 
+
 workflows:
   version: 2
 
   build-integration-test-deploy:
     jobs:
-      - build-integration-test:
-          filters:
-            tags:
-              only: /.*/
-
-      - deploy:
-          requires:
-            - build-integration-test
+      - build-integration-test-deploy:
           filters:
             tags:
               # only upload the docker container on semver tags
               only: /[0-9]\.[0-9]+\.[0-9]+/
-            branches:
-              only: main
