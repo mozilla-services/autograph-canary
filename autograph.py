@@ -99,6 +99,31 @@ def sync_send(worker, command):
     raise Exception("Message timed out")
 
 
+def log_test_messages(res_dict: typing.Dict[str, str]):
+    """
+    print log lines from run test results
+    """
+    if (
+        "result" in res_dict
+        and "results" in res_dict["result"]
+        and isinstance(res_dict["result"]["results"], list)
+    ):
+        for result in res_dict["result"]["results"]:
+            if (
+                isinstance(result, dict)
+                and "messages" in result
+                and isinstance(result["messages"], list)
+            ):
+                for line in result["messages"]:
+                    logger.info(line)
+            else:
+                logger.info(result)
+    else:
+        logger.info(res_dict)
+
+    logger.info(f"Worker info: {info_response.as_dict()}")
+
+
 def run_tests(event, lambda_context, native=False):
     coloredlogs.install(level=os.environ["CANARY_LOG_LEVEL"])
 
@@ -134,22 +159,7 @@ def run_tests(event, lambda_context, native=False):
 
         res_dict = response.as_dict()
 
-        # print log lines when possible
-        if (
-            "result" in res_dict
-            and "results" in res_dict["result"]
-            and isinstance(res_dict["result"]["results"], list)
-        ):
-            for result in res_dict["result"]["results"]:
-                if isinstance(result, dict) and "messages" in result and isinstance(result["messages"], list):
-                    for line in result["messages"]:
-                        logger.info(line)
-                else:
-                    logger.info(result)
-        else:
-            logger.info(res_dict)
-
-        logger.info(f"Worker info: {info_response.as_dict()}")
+        log_test_messages(res_dict)
 
         if res_dict["success"]:
             logger.info(
