@@ -17,7 +17,6 @@ import typing
 
 from tlscanary.tools import firefox_app as fx_app
 from tlscanary.tools import firefox_downloader as fx_dl
-from tlscanary.tools import firefox_extractor as fx_ex
 from tlscanary.tools import xpcshell_worker as xw
 
 
@@ -30,21 +29,16 @@ coloredlogs.DEFAULT_LOG_FORMAT = (
 coloredlogs.install(level="DEBUG")
 
 
-def get_app(temp_dir, native):
-    downloader = fx_dl.FirefoxDownloader(temp_dir, cache_timeout=1)
-    if native:
-        test_archive = downloader.download("nightly", use_cache=True)
-        return fx_ex.extract(test_archive, temp_dir)
-    else:
-        url = fx_dl.FirefoxDownloader.get_download_url("nightly")
-        logger.info(f"fetching nightly from {url}")
-        dc = bz2.BZ2Decompressor()
-        r = requests.get(url)
-        f = io.BytesIO(dc.decompress(r.content))
-        ta = tarfile.open(fileobj=f)
-        logger.info(f"extracting tar file to {temp_dir}")
-        ta.extractall(path=temp_dir)
-        return fx_app.FirefoxApp(temp_dir)
+def get_app(temp_dir):
+    url = fx_dl.FirefoxDownloader.get_download_url("nightly")
+    logger.info(f"fetching nightly from {url}")
+    dc = bz2.BZ2Decompressor()
+    r = requests.get(url)
+    f = io.BytesIO(dc.decompress(r.content))
+    ta = tarfile.open(fileobj=f)
+    logger.info(f"extracting tar file to {temp_dir}")
+    ta.extractall(path=temp_dir)
+    return fx_app.FirefoxApp(temp_dir)
 
 
 def get_test_args(test_filename: str) -> typing.Tuple[typing.Dict[str, str], int]:
@@ -111,7 +105,7 @@ def log_test_messages(res_dict: typing.Dict[str, str]):
     logger.info(f"Worker info: {info_response.as_dict()}")
 
 
-def run_tests(event, lambda_context, native=False):
+def run_tests(event, lambda_context):
     coloredlogs.install(level=os.environ["CANARY_LOG_LEVEL"])
 
     test_files = sorted(
@@ -126,7 +120,7 @@ def run_tests(event, lambda_context, native=False):
     with tempfile.TemporaryDirectory(prefix="canary_") as temp_dir:
         logger.debug(f"Created canary dir {temp_dir!r}")
 
-        app = get_app(temp_dir, native)
+        app = get_app(temp_dir)
 
         for script_path in test_files:
             test_kwargs, test_timeout = get_test_args(script_path.name)
@@ -178,9 +172,9 @@ def autograph_canary_monitor(event, context):
             event, context
         )
     )
-    run_tests(event, context, native=True)
+    run_tests(event, context)
 
 
 if __name__ == "__main__":
     # simulate the lambda when run from a main program
-    run_tests({}, lambda_context=None, native=True)
+    run_tests({}, lambda_context=None)
