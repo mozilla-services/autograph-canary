@@ -143,8 +143,12 @@ def run_tests(event, lambda_context, native=False):
                 )
                 w.spawn()
                 info_response = sync_send(w, xw.Command("get_worker_info", id=1))
-                logger.info(f"running test {str(script_path.resolve())} with {test_kwargs}")
-                response = sync_send(w, xw.Command(mode="run_test", id=2, **test_kwargs))
+                logger.info(
+                    f"running test {str(script_path.resolve())} with {test_kwargs}"
+                )
+                response = sync_send(
+                    w, xw.Command(mode="run_test", id=2, **test_kwargs)
+                )
                 time.sleep(test_timeout)
                 w.terminate()
 
