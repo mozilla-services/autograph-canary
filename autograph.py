@@ -13,14 +13,13 @@ import sys
 import tarfile
 import tempfile
 import time
+import typing
 
 from tlscanary.tools import firefox_app as fx_app
 from tlscanary.tools import firefox_downloader as fx_dl
 from tlscanary.tools import firefox_extractor as fx_ex
 from tlscanary.tools import xpcshell_worker as xw
 
-tmp_dir = None
-module_dir = None
 
 # Initialize coloredlogs
 logging.Formatter.converter = time.gmtime
@@ -29,17 +28,6 @@ coloredlogs.DEFAULT_LOG_FORMAT = (
     "%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s"
 )
 coloredlogs.install(level="DEBUG")
-
-# TODO: MDG - Move create_tempdir to a helper module
-def __create_tempdir(prefix="canary_"):
-    """
-    Helper function for creating the temporary directory.
-    Writes to the global variable tmp_dir
-    :return: Path of temporary directory
-    """
-    temp_dir = tempfile.mkdtemp(prefix=prefix)
-    logger.debug(f"Created temp dir {temp_dir!r}")
-    return temp_dir
 
 
 def get_app(temp_dir, native):
@@ -57,6 +45,24 @@ def get_app(temp_dir, native):
         logger.info(f"extracting tar file to {temp_dir}")
         ta.extractall(path=temp_dir)
         return fx_app.FirefoxApp(temp_dir)
+
+
+def get_test_args(test_filename: str) -> typing.Tuple[typing.Dict[str, str], int]:
+    """
+    Return the kwargs and timeout for a test filename
+    """
+    if test_filename == "content_signature_test.js":
+        kwargs = dict(
+            collections=os.environ["CSIG_COLLECTIONS"], env=os.environ["CSIG_ENV"]
+        )
+        timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(","))
+    elif test_filename == "addon_signature_test.js":
+        kwargs = dict(xpi_urls=os.environ["XPI_URLS"], env=os.environ["XPI_ENV"])
+        timeout = 3 * len(os.environ["XPI_URLS"].split(","))
+    else:
+        kwargs = dict()
+        timeout = 5
+    return kwargs, timeout
 
 
 def sync_send(worker, command):
@@ -80,13 +86,34 @@ def sync_send(worker, command):
     raise Exception("Message timed out")
 
 
+def log_test_messages(res_dict: typing.Dict[str, str]):
+    """
+    print log lines from run test results
+    """
+    if (
+        "result" in res_dict
+        and "results" in res_dict["result"]
+        and isinstance(res_dict["result"]["results"], list)
+    ):
+        for result in res_dict["result"]["results"]:
+            if (
+                isinstance(result, dict)
+                and "messages" in result
+                and isinstance(result["messages"], list)
+            ):
+                for line in result["messages"]:
+                    logger.info(line)
+            else:
+                logger.info(result)
+    else:
+        logger.info(res_dict)
+
+    logger.info(f"Worker info: {info_response.as_dict()}")
+
+
 def run_tests(event, lambda_context, native=False):
     coloredlogs.install(level=os.environ["CANARY_LOG_LEVEL"])
 
-    temp_dir = __create_tempdir()
-    app = get_app(temp_dir, native)
-
-    # Spawn a worker.
     test_files = sorted(
         path
         for path in pathlib.Path("./tests").glob(os.environ["TEST_FILES_GLOB"])
@@ -96,61 +123,48 @@ def run_tests(event, lambda_context, native=False):
     # Unless a test fails, we want to exit with a non-error result
     failure_seen = False
 
-    for script_path in test_files:
-        if script_path.name == "content_signature_test.js":
-            run_test_kwargs = dict(
-                collections=os.environ["CSIG_COLLECTIONS"], env=os.environ["CSIG_ENV"]
-            )
-            run_test_timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(","))
-        elif script_path.name == "addon_signature_test.js":
-            run_test_kwargs = dict(xpi_urls=os.environ["XPI_URLS"], env=os.environ["XPI_ENV"])
-            run_test_timeout = 3 * len(os.environ["XPI_URLS"].split(","))
-        else:
-            run_test_kwargs = dict()
-            run_test_timeout = 5
+    with tempfile.TemporaryDirectory(prefix="canary_") as temp_dir:
+        logger.debug(f"Created canary dir {temp_dir!r}")
 
-        profile_dir = __create_tempdir(prefix="profile_")
-        w = xw.XPCShellWorker(
-            app,
-            script=str(script_path.resolve()),
-            # head_script=os.path.join(os.path.abspath("."), "head.js"),
-            profile=profile_dir,
-        )
-        w.spawn()
-        info_response = sync_send(w, xw.Command("get_worker_info", id=1))
-        logger.info(f"running test {str(script_path.resolve())} with {run_test_kwargs}")
-        response = sync_send(w, xw.Command(mode="run_test", id=2, **run_test_kwargs))
-        time.sleep(run_test_timeout)
-        w.terminate()
+        app = get_app(temp_dir, native)
 
-        res_dict = response.as_dict()
+        for script_path in test_files:
+            test_kwargs, test_timeout = get_test_args(script_path.name)
 
-        # print log lines when possible
-        if (
-            "result" in res_dict
-            and "results" in res_dict["result"]
-            and isinstance(res_dict["result"]["results"], list)
-        ):
-            for result in res_dict["result"]["results"]:
-                if isinstance(result, dict) and "messages" in result and isinstance(result["messages"], list):
-                    for line in result["messages"]:
-                        logger.info(line)
-                else:
-                    logger.info(result)
-        else:
-            logger.info(res_dict)
+            with tempfile.TemporaryDirectory(prefix="profile_") as profile_dir:
+                logger.debug(f"Created profile dir {profile_dir!r}")
 
-        logger.info(f"Worker info: {info_response.as_dict()}")
+                # Spawn a worker.
+                w = xw.XPCShellWorker(
+                    app,
+                    script=str(script_path.resolve()),
+                    # head_script=os.path.join(os.path.abspath("."), "head.js"),
+                    profile=profile_dir,
+                )
+                w.spawn()
+                info_response = sync_send(w, xw.Command("get_worker_info", id=1))
+                logger.info(
+                    f"running test {str(script_path.resolve())} with {test_kwargs}"
+                )
+                response = sync_send(
+                    w, xw.Command(mode="run_test", id=2, **test_kwargs)
+                )
+                time.sleep(test_timeout)
+                w.terminate()
 
-        if res_dict["success"]:
-            logger.info(
-                f"SUCCESS: {script_path} executed with result {res_dict['success']}"
-            )
-        else:
-            logger.info(
-                f"FAIL: {script_path} executed with result {res_dict['success']}"
-            )
-            failure_seen = True
+            res_dict = response.as_dict()
+
+            log_test_messages(res_dict)
+
+            if res_dict["success"]:
+                logger.info(
+                    f"SUCCESS: {script_path} executed with result {res_dict['success']}"
+                )
+            else:
+                logger.info(
+                    f"FAIL: {script_path} executed with result {res_dict['success']}"
+                )
+                failure_seen = True
 
     if not failure_seen:
         logger.info("Tests passed successfully")
