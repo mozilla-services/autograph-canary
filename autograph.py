@@ -13,6 +13,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import typing
 
 from tlscanary.tools import firefox_app as fx_app
 from tlscanary.tools import firefox_downloader as fx_dl
@@ -59,6 +60,24 @@ def get_app(temp_dir, native):
         return fx_app.FirefoxApp(temp_dir)
 
 
+def get_test_args(test_filename: str) -> typing.Tuple[typing.Dict[str, str], int]:
+    """
+    Return the kwargs and timeout for a test filename
+    """
+    if test_filename == "content_signature_test.js":
+        kwargs = dict(
+            collections=os.environ["CSIG_COLLECTIONS"], env=os.environ["CSIG_ENV"]
+        )
+        timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(","))
+    elif test_filename == "addon_signature_test.js":
+        kwargs = dict(xpi_urls=os.environ["XPI_URLS"], env=os.environ["XPI_ENV"])
+        timeout = 3 * len(os.environ["XPI_URLS"].split(","))
+    else:
+        kwargs = dict()
+        timeout = 5
+    return kwargs, timeout
+
+
 def sync_send(worker, command):
     worker.send(command)
     command_dict = command.as_dict()
@@ -97,17 +116,7 @@ def run_tests(event, lambda_context, native=False):
     failure_seen = False
 
     for script_path in test_files:
-        if script_path.name == "content_signature_test.js":
-            run_test_kwargs = dict(
-                collections=os.environ["CSIG_COLLECTIONS"], env=os.environ["CSIG_ENV"]
-            )
-            run_test_timeout = 5 * len(os.environ["CSIG_COLLECTIONS"].split(","))
-        elif script_path.name == "addon_signature_test.js":
-            run_test_kwargs = dict(xpi_urls=os.environ["XPI_URLS"], env=os.environ["XPI_ENV"])
-            run_test_timeout = 3 * len(os.environ["XPI_URLS"].split(","))
-        else:
-            run_test_kwargs = dict()
-            run_test_timeout = 5
+        test_kwargs, test_timeout = get_test_args(script_path.name)
 
         profile_dir = __create_tempdir(prefix="profile_")
         w = xw.XPCShellWorker(
@@ -118,9 +127,9 @@ def run_tests(event, lambda_context, native=False):
         )
         w.spawn()
         info_response = sync_send(w, xw.Command("get_worker_info", id=1))
-        logger.info(f"running test {str(script_path.resolve())} with {run_test_kwargs}")
-        response = sync_send(w, xw.Command(mode="run_test", id=2, **run_test_kwargs))
-        time.sleep(run_test_timeout)
+        logger.info(f"running test {str(script_path.resolve())} with {test_kwargs}")
+        response = sync_send(w, xw.Command(mode="run_test", id=2, **test_kwargs))
+        time.sleep(test_timeout)
         w.terminate()
 
         res_dict = response.as_dict()
