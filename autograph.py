@@ -20,8 +20,6 @@ from tlscanary.tools import firefox_downloader as fx_dl
 from tlscanary.tools import firefox_extractor as fx_ex
 from tlscanary.tools import xpcshell_worker as xw
 
-tmp_dir = None
-module_dir = None
 
 # Initialize coloredlogs
 logging.Formatter.converter = time.gmtime
@@ -30,17 +28,6 @@ coloredlogs.DEFAULT_LOG_FORMAT = (
     "%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s"
 )
 coloredlogs.install(level="DEBUG")
-
-# TODO: MDG - Move create_tempdir to a helper module
-def __create_tempdir(prefix="canary_"):
-    """
-    Helper function for creating the temporary directory.
-    Writes to the global variable tmp_dir
-    :return: Path of temporary directory
-    """
-    temp_dir = tempfile.mkdtemp(prefix=prefix)
-    logger.debug(f"Created temp dir {temp_dir!r}")
-    return temp_dir
 
 
 def get_app(temp_dir, native):
