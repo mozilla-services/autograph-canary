@@ -102,3 +102,17 @@ To run integration tests in the containerized AWS lambda emulator:
 1. Run `make build` to build the canary and emulator containers
 
 1. Run `make integration-test`, which starts the emulator and runs `bin/run_integration_tests.sh`
+
+## Development
+
+1. install docker and docker-compose
+
+1. run `cp docker-compose.override.yml.example docker-compose.override.yml`
+
+1. Run `make build` to build the canary and emulator containers
+
+1. Run `docker-compose up -d emulator` to start the emulator container
+
+1. Run `make emulator-shell` to log into the emulator container. In
+   the container run `cp local/autograph.py . && python autograph.py`
+   to run tests without rebuilding the container.
