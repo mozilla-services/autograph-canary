@@ -127,9 +127,6 @@ def log_test_messages(res_dict: typing.Dict[str, str]):
 def run_tests(event, lambda_context, native=False):
     coloredlogs.install(level=os.environ["CANARY_LOG_LEVEL"])
 
-    temp_dir = __create_tempdir()
-    app = get_app(temp_dir, native)
-
     test_files = sorted(
         path
         for path in pathlib.Path("./tests").glob(os.environ["TEST_FILES_GLOB"])
@@ -139,39 +136,44 @@ def run_tests(event, lambda_context, native=False):
     # Unless a test fails, we want to exit with a non-error result
     failure_seen = False
 
-    for script_path in test_files:
-        test_kwargs, test_timeout = get_test_args(script_path.name)
+    with tempfile.TemporaryDirectory(prefix="canary_") as temp_dir:
+        logger.debug(f"Created canary dir {temp_dir!r}")
 
-        with tempfile.TemporaryDirectory(prefix="profile_") as profile_dir:
-            logger.debug(f"Created profile dir {profile_dir!r}")
+        app = get_app(temp_dir, native)
 
-            # Spawn a worker.
-            w = xw.XPCShellWorker(
-                app,
-                script=str(script_path.resolve()),
-                # head_script=os.path.join(os.path.abspath("."), "head.js"),
-                profile=profile_dir,
-            )
-            w.spawn()
-            info_response = sync_send(w, xw.Command("get_worker_info", id=1))
-            logger.info(f"running test {str(script_path.resolve())} with {test_kwargs}")
-            response = sync_send(w, xw.Command(mode="run_test", id=2, **test_kwargs))
-            time.sleep(test_timeout)
-            w.terminate()
+        for script_path in test_files:
+            test_kwargs, test_timeout = get_test_args(script_path.name)
 
-        res_dict = response.as_dict()
+            with tempfile.TemporaryDirectory(prefix="profile_") as profile_dir:
+                logger.debug(f"Created profile dir {profile_dir!r}")
 
-        log_test_messages(res_dict)
+                # Spawn a worker.
+                w = xw.XPCShellWorker(
+                    app,
+                    script=str(script_path.resolve()),
+                    # head_script=os.path.join(os.path.abspath("."), "head.js"),
+                    profile=profile_dir,
+                )
+                w.spawn()
+                info_response = sync_send(w, xw.Command("get_worker_info", id=1))
+                logger.info(f"running test {str(script_path.resolve())} with {test_kwargs}")
+                response = sync_send(w, xw.Command(mode="run_test", id=2, **test_kwargs))
+                time.sleep(test_timeout)
+                w.terminate()
 
-        if res_dict["success"]:
-            logger.info(
-                f"SUCCESS: {script_path} executed with result {res_dict['success']}"
-            )
-        else:
-            logger.info(
-                f"FAIL: {script_path} executed with result {res_dict['success']}"
-            )
-            failure_seen = True
+            res_dict = response.as_dict()
+
+            log_test_messages(res_dict)
+
+            if res_dict["success"]:
+                logger.info(
+                    f"SUCCESS: {script_path} executed with result {res_dict['success']}"
+                )
+            else:
+                logger.info(
+                    f"FAIL: {script_path} executed with result {res_dict['success']}"
+                )
+                failure_seen = True
 
     if not failure_seen:
         logger.info("Tests passed successfully")
