@@ -11,6 +11,18 @@ signed XPI/Addons and content signtures.
 
 ## Usage
 
+### Installation
+
+To download the built image from dockerhub run:
+
+```sh
+docker pull mozilla/autograph-canary
+```
+
+or [see
+below](https://github.com/mozilla-services/autograph-canary/blob/main/README.md#command-line)
+to build it locally.
+
 ## AWS Lambda
 
 #### Environment Varables
