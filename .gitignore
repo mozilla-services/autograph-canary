@@ -2,3 +2,4 @@ venv
 .venv
 *.zip
 node_modules/
+docker-compose.override.yml

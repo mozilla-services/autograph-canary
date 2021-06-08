@@ -1,0 +1,20 @@
+version: "3"
+services:
+  emulator:
+    environment:
+      - CANARY_LOG_LEVEL=debug
+      # uncomment to run one test
+      # - TEST_FILES_GLOB=content_signature_test.js
+      # - TEST_FILES_GLOB=addon_signature_test.js
+    volumes:
+      - ./tests/:/function/tests/
+      - ./:/function/local/
+
+  js-devtools:
+    container_name: autograph-canary-js-devtools
+    image: autograph-canary-js-devtools
+    build:
+      context: .
+      dockerfile: Dockerfile.js-devtools
+    volumes:
+      - .:/app

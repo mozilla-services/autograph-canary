@@ -7,3 +7,5 @@ format-js:
 format: format-js
 format-check:
 	git diff --exit-code tests/  # fail if js isn't formatted
+emulator-shell:
+	docker-compose exec emulator /bin/bash
