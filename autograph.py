@@ -130,7 +130,6 @@ def run_tests(event, lambda_context, native=False):
     temp_dir = __create_tempdir()
     app = get_app(temp_dir, native)
 
-    # Spawn a worker.
     test_files = sorted(
         path
         for path in pathlib.Path("./tests").glob(os.environ["TEST_FILES_GLOB"])
@@ -143,19 +142,22 @@ def run_tests(event, lambda_context, native=False):
     for script_path in test_files:
         test_kwargs, test_timeout = get_test_args(script_path.name)
 
-        profile_dir = __create_tempdir(prefix="profile_")
-        w = xw.XPCShellWorker(
-            app,
-            script=str(script_path.resolve()),
-            # head_script=os.path.join(os.path.abspath("."), "head.js"),
-            profile=profile_dir,
-        )
-        w.spawn()
-        info_response = sync_send(w, xw.Command("get_worker_info", id=1))
-        logger.info(f"running test {str(script_path.resolve())} with {test_kwargs}")
-        response = sync_send(w, xw.Command(mode="run_test", id=2, **test_kwargs))
-        time.sleep(test_timeout)
-        w.terminate()
+        with tempfile.TemporaryDirectory(prefix="profile_") as profile_dir:
+            logger.debug(f"Created profile dir {profile_dir!r}")
+
+            # Spawn a worker.
+            w = xw.XPCShellWorker(
+                app,
+                script=str(script_path.resolve()),
+                # head_script=os.path.join(os.path.abspath("."), "head.js"),
+                profile=profile_dir,
+            )
+            w.spawn()
+            info_response = sync_send(w, xw.Command("get_worker_info", id=1))
+            logger.info(f"running test {str(script_path.resolve())} with {test_kwargs}")
+            response = sync_send(w, xw.Command(mode="run_test", id=2, **test_kwargs))
+            time.sleep(test_timeout)
+            w.terminate()
 
         res_dict = response.as_dict()
 
