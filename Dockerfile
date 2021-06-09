@@ -7,16 +7,20 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Include global arg in this stage of the build
 ARG FUNCTION_DIR
 
-# Install aws-lambda-cpp build dependencies
+# Install aws-lambda-cpp build dependencies and curl to download Fx
 RUN apt-get update && \
   apt-get install -y \
   g++ \
   make \
   cmake \
   unzip \
-  libcurl4-openssl-dev
+  libcurl4-openssl-dev \
+  curl
 
-RUN mkdir -p ${FUNCTION_DIR}/tests
+RUN mkdir -p ${FUNCTION_DIR}/tests ${FUNCTION_DIR}/firefox && \
+    cd ${FUNCTION_DIR}/firefox && \
+    curl -sSf -o - --proto '=https' --tlsv1.2 -L 'https://download.mozilla.org/?product=firefox-nightly-latest&os=linux64&lang=en-US' | \
+    tar xvjf -
 
 ADD requirements.txt ${FUNCTION_DIR}
 
@@ -43,7 +47,7 @@ ENV CSIG_COLLECTIONS="blocklists/gfx,blocklists/addons-bloomfilters,blocklists/p
 # Include global arg in this stage of the build
 ARG FUNCTION_DIR
 
-# install fx release w/ deps and 7zip for tls-canary
+# install fx release w/ deps
 RUN apt-get update \
     && echo 'deb http://deb.debian.org/debian unstable main' > /etc/apt/sources.list.d/unstable.list \
     && apt update \
