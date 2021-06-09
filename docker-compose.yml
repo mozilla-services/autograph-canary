@@ -1,6 +1,11 @@
 version: "3"
 volumes:
   tmpdir:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      o: "size=512m"
+      device: ":/tmp"
 services:
   canary:
     container_name: autograph-canary

@@ -2,22 +2,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import bz2
 import coloredlogs
-import io
 import logging
 import os
 import pathlib
-import requests
 import shutil
 import sys
-import tarfile
 import tempfile
 import time
 import typing
 
 from tlscanary.tools import firefox_app as fx_app
-from tlscanary.tools import firefox_downloader as fx_dl
 from tlscanary.tools import xpcshell_worker as xw
 
 
@@ -28,18 +23,6 @@ coloredlogs.DEFAULT_LOG_FORMAT = (
     "%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s"
 )
 coloredlogs.install(level="DEBUG")
-
-
-def get_app(temp_dir):
-    url = fx_dl.FirefoxDownloader.get_download_url("nightly")
-    logger.info(f"fetching nightly from {url}")
-    dc = bz2.BZ2Decompressor()
-    r = requests.get(url)
-    f = io.BytesIO(dc.decompress(r.content))
-    ta = tarfile.open(fileobj=f)
-    logger.info(f"extracting tar file to {temp_dir}")
-    ta.extractall(path=temp_dir)
-    return fx_app.FirefoxApp(temp_dir)
 
 
 def get_test_args(test_filename: str) -> typing.Tuple[typing.Dict[str, str], int]:
@@ -125,53 +108,43 @@ def run_tests(event, lambda_context):
     # Unless a test fails, we want to exit with a non-error result
     failure_seen = False
 
-    with tempfile.TemporaryDirectory(prefix="canary_") as temp_dir:
-        logger.debug(f"Created canary dir {temp_dir!r}")
-        log_disk_usage()
+    app = fx_app.FirefoxApp(str(pathlib.Path("./firefox/").resolve(strict=True)))
 
-        app = get_app(temp_dir)
+    for script_path in test_files:
+        test_kwargs, test_timeout = get_test_args(script_path.name)
 
-        log_disk_usage()
+        with tempfile.TemporaryDirectory(prefix="profile_") as profile_dir:
+            logger.debug(f"Created profile dir {profile_dir!r}")
+            log_disk_usage()
 
-        for script_path in test_files:
-            test_kwargs, test_timeout = get_test_args(script_path.name)
+            # Spawn a worker.
+            w = xw.XPCShellWorker(
+                app,
+                script=str(script_path.resolve()),
+                # head_script=os.path.join(os.path.abspath("."), "head.js"),
+                profile=profile_dir,
+            )
+            w.spawn()
+            info_response = sync_send(w, xw.Command("get_worker_info", id=1))
+            logger.info(f"running test {str(script_path.resolve())} with {test_kwargs}")
+            response = sync_send(w, xw.Command(mode="run_test", id=2, **test_kwargs))
+            time.sleep(test_timeout)
+            w.terminate()
 
-            with tempfile.TemporaryDirectory(prefix="profile_") as profile_dir:
-                logger.debug(f"Created profile dir {profile_dir!r}")
-                log_disk_usage()
+        res_dict = response.as_dict()
 
-                # Spawn a worker.
-                w = xw.XPCShellWorker(
-                    app,
-                    script=str(script_path.resolve()),
-                    # head_script=os.path.join(os.path.abspath("."), "head.js"),
-                    profile=profile_dir,
-                )
-                w.spawn()
-                info_response = sync_send(w, xw.Command("get_worker_info", id=1))
-                logger.info(
-                    f"running test {str(script_path.resolve())} with {test_kwargs}"
-                )
-                response = sync_send(
-                    w, xw.Command(mode="run_test", id=2, **test_kwargs)
-                )
-                time.sleep(test_timeout)
-                w.terminate()
+        log_test_messages(res_dict)
+        logger.info(f"Worker info: {info_response.as_dict()}")
 
-            res_dict = response.as_dict()
-
-            log_test_messages(res_dict)
-            logger.info(f"Worker info: {info_response.as_dict()}")
-
-            if res_dict["success"]:
-                logger.info(
-                    f"SUCCESS: {script_path} executed with result {res_dict['success']}"
-                )
-            else:
-                logger.info(
-                    f"FAIL: {script_path} executed with result {res_dict['success']}"
-                )
-                failure_seen = True
+        if res_dict["success"]:
+            logger.info(
+                f"SUCCESS: {script_path} executed with result {res_dict['success']}"
+            )
+        else:
+            logger.info(
+                f"FAIL: {script_path} executed with result {res_dict['success']}"
+            )
+            failure_seen = True
 
     log_disk_usage()
 
