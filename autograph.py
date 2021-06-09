@@ -103,8 +103,6 @@ def log_test_messages(res_dict: typing.Dict[str, str]):
     else:
         logger.info(res_dict)
 
-    logger.info(f"Worker info: {info_response.as_dict()}")
-
 
 def log_disk_usage(path: str = "/tmp"):
     """
@@ -163,6 +161,7 @@ def run_tests(event, lambda_context):
             res_dict = response.as_dict()
 
             log_test_messages(res_dict)
+            logger.info(f"Worker info: {info_response.as_dict()}")
 
             if res_dict["success"]:
                 logger.info(
