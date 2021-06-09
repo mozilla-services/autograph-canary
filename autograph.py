@@ -9,6 +9,7 @@ import logging
 import os
 import pathlib
 import requests
+import shutil
 import sys
 import tarfile
 import tempfile
@@ -102,10 +103,17 @@ def log_test_messages(res_dict: typing.Dict[str, str]):
     else:
         logger.info(res_dict)
 
-    logger.info(f"Worker info: {info_response.as_dict()}")
+
+def log_disk_usage(path: str = "/tmp"):
+    """
+    Log disk usage at path
+    """
+    logger.info(f"{path} disk usage: {shutil.disk_usage(path)}")
 
 
 def run_tests(event, lambda_context):
+    log_disk_usage()
+
     coloredlogs.install(level=os.environ["CANARY_LOG_LEVEL"])
 
     test_files = sorted(
@@ -119,14 +127,18 @@ def run_tests(event, lambda_context):
 
     with tempfile.TemporaryDirectory(prefix="canary_") as temp_dir:
         logger.debug(f"Created canary dir {temp_dir!r}")
+        log_disk_usage()
 
         app = get_app(temp_dir)
+
+        log_disk_usage()
 
         for script_path in test_files:
             test_kwargs, test_timeout = get_test_args(script_path.name)
 
             with tempfile.TemporaryDirectory(prefix="profile_") as profile_dir:
                 logger.debug(f"Created profile dir {profile_dir!r}")
+                log_disk_usage()
 
                 # Spawn a worker.
                 w = xw.XPCShellWorker(
@@ -149,6 +161,7 @@ def run_tests(event, lambda_context):
             res_dict = response.as_dict()
 
             log_test_messages(res_dict)
+            logger.info(f"Worker info: {info_response.as_dict()}")
 
             if res_dict["success"]:
                 logger.info(
@@ -159,6 +172,8 @@ def run_tests(event, lambda_context):
                     f"FAIL: {script_path} executed with result {res_dict['success']}"
                 )
                 failure_seen = True
+
+    log_disk_usage()
 
     if not failure_seen:
         logger.info("Tests passed successfully")
