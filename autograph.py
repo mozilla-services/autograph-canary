@@ -129,8 +129,6 @@ def run_tests(event, lambda_context):
             logger.debug(f"worker running? {w.is_running()!r}")
 
             assert spawn_result is True
-            assert w.__worker_thread is not None
-            assert w.__worker_thread.poll() is None
 
             info_response = sync_send(w, xw.Command("get_worker_info", id=1))
             logger.info(f"running test {str(script_path.resolve())} with {test_kwargs}")
