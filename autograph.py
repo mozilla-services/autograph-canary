@@ -124,7 +124,14 @@ def run_tests(event, lambda_context):
                 # head_script=os.path.join(os.path.abspath("."), "head.js"),
                 profile=profile_dir,
             )
-            w.spawn()
+            spawn_result = w.spawn()
+            logger.debug(f"spawned worker with result {spawn_result!r}")
+            logger.debug(f"worker running? {w.is_running()!r}")
+
+            assert spawn_result is True
+            assert w.__worker_thread is not None
+            assert w.__worker_thread.poll() is None
+
             info_response = sync_send(w, xw.Command("get_worker_info", id=1))
             logger.info(f"running test {str(script_path.resolve())} with {test_kwargs}")
             response = sync_send(w, xw.Command(mode="run_test", id=2, **test_kwargs))
