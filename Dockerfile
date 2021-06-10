@@ -57,8 +57,8 @@ RUN apt-get update \
 # Set working directory to function root directory
 WORKDIR ${FUNCTION_DIR}
 
-# add version.json for dockerflow
-RUN mkdir -p /app/
+# add version.json for dockerflow and fake /dev/shm/
+RUN mkdir -p /app/ /dev/shm/
 ADD version.json /app/
 
 # Copy in the built dependencies
