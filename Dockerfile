@@ -30,6 +30,7 @@ RUN pip install --target ${FUNCTION_DIR} -r ${FUNCTION_DIR}/requirements.txt
 # add function code
 ADD autograph.py ${FUNCTION_DIR}
 COPY tests ${FUNCTION_DIR}/tests
+COPY bin ${FUNCTION_DIR}/bin
 
 FROM python:3.8-buster
 ENV DEBIAN_FRONTEND=noninteractive
@@ -63,4 +64,4 @@ ADD version.json /app/
 # Copy in the built dependencies
 COPY --from=build-image ${FUNCTION_DIR} ${FUNCTION_DIR}
 
-CMD [ "/usr/local/bin/python", "autograph.py" ]
+CMD [ "/function/bin/canary_fx_test.sh" ]
