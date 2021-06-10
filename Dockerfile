@@ -30,6 +30,7 @@ RUN pip install --target ${FUNCTION_DIR} -r ${FUNCTION_DIR}/requirements.txt
 # add function code
 ADD autograph.py ${FUNCTION_DIR}
 COPY tests ${FUNCTION_DIR}/tests
+COPY bin ${FUNCTION_DIR}/bin
 
 FROM python:3.8-buster
 ENV DEBIAN_FRONTEND=noninteractive

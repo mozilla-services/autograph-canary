@@ -7,6 +7,7 @@ services:
       # - TEST_FILES_GLOB=content_signature_test.js
       # - TEST_FILES_GLOB=addon_signature_test.js
     volumes:
+      - ./bin/:/function/bin/
       - ./tests/:/function/tests/
       - ./:/function/local/
 
