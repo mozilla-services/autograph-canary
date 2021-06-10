@@ -64,4 +64,4 @@ ADD version.json /app/
 # Copy in the built dependencies
 COPY --from=build-image ${FUNCTION_DIR} ${FUNCTION_DIR}
 
-CMD [ "/usr/local/bin/python", "autograph.py" ]
+CMD [ "/function/bin/canary_fx_test.sh" ]
