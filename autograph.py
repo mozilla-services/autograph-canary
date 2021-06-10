@@ -122,7 +122,7 @@ def run_tests(event, lambda_context):
                 app,
                 script=str(script_path.resolve()),
                 # head_script=os.path.join(os.path.abspath("."), "head.js"),
-                # profile=profile_dir,
+                profile=profile_dir,
             )
             spawn_result = w.spawn()
             logger.debug(f"spawned worker with result {spawn_result!r}")
