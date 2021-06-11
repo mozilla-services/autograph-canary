@@ -18,5 +18,5 @@ ls -lh /tmp/core*
 for core_file in $(ls -1 /tmp/core*);
 do
     echo "$core_file"
-    xxd "$core_file"
+    gzip -c "$core_file" | xxd
 done
