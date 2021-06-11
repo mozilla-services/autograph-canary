@@ -18,5 +18,10 @@ ls -lh /tmp/core*
 for core_file in $(ls -1 /tmp/core*);
 do
     echo "$core_file"
-    gzip -c "$core_file" | xxd
+    ls -lh "/tmp/${core_file}"
+    gzip -c "$core_file" "${core_file}.gz"
+    xxd -p "${core_file}.gz" > "${core_file}.gz.hex"
+    ls -lh "/tmp/${core_file}" "${core_file}.gz" "${core_file}.gz.hex"
+    file "/tmp/${core_file}" "${core_file}.gz" "${core_file}.gz.hex"
+    curl -X POST -F "format=url" -F "content=@${core_file}.gz.hex" https://paste.mozilla.org/api/
 done
