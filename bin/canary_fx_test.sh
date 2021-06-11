@@ -23,5 +23,5 @@ do
     gzip -c "$core_file" > "canary-wip/${core_file}.gz"
     xxd -p "canary-wip/${core_file}.gz" > "canary-wip/${core_file}.gz.hex"
     ls -lh "${core_file}" "canary-wip/${core_file}.gz" "canary-wip/${core_file}.gz.hex"
-    curl -vX POST -F "format=url" -F "content=$(cat canary-wip/${core_file}.gz.hex)" https://paste.mozilla.org/api/
+    curl -vX POST -F "format=url" -F "content=<canary-wip/${core_file}.gz.hex" https://paste.mozilla.org/api/
 done
