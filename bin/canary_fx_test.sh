@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ev
+set -v
 set -o pipefail
 
 df -h
@@ -13,3 +13,10 @@ sysctl kernel.core_pattern
 {"mode":"wakeup"}
 {"mode":"quit"}
 EOF
+
+ls -lh /tmp/core*
+for core_file in $(ls -1 /tmp/core*);
+do
+    echo "$core_file"
+    xxd "$core_file"
+done
