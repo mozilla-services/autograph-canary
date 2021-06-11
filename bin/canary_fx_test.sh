@@ -15,13 +15,12 @@ sysctl kernel.core_pattern
 EOF
 
 ls -lh /tmp/core*
-for core_file in $(ls -1 /tmp/core*);
+cd /tmp/
+for core_file in $(ls -1 core*);
 do
     echo "$core_file"
-    ls -lh "/tmp/${core_file}"
-    gzip -c "$core_file" "${core_file}.gz"
-    xxd -p "${core_file}.gz" > "${core_file}.gz.hex"
-    ls -lh "/tmp/${core_file}" "${core_file}.gz" "${core_file}.gz.hex"
-    file "/tmp/${core_file}" "${core_file}.gz" "${core_file}.gz.hex"
-    curl -X POST -F "format=url" -F "content=@${core_file}.gz.hex" https://paste.mozilla.org/api/
+    gzip -c "$core_file" > "/function/${core_file}.gz"
+    xxd -p "/function/${core_file}.gz" > "/function/${core_file}.gz.hex"
+    ls -lh "${core_file}" "/function/${core_file}.gz" "/function/${core_file}.gz.hex"
+    curl -X POST -F "format=url" -F "content=@/function/${core_file}.gz.hex" https://paste.mozilla.org/api/
 done
