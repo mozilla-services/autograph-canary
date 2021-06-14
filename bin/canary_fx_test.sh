@@ -11,6 +11,8 @@ ldd /function/firefox/firefox/firefox
 
 sysctl kernel.core_pattern
 
+rm -f /tmp/core.firefox*
+
 /function/firefox/firefox/firefox -xpcshell -g /function/firefox/firefox/ -a /function/firefox/firefox/browser -f /function/tlscanary/js/worker_common.js /function/tests/content_signature_test.js <<EOF
 {"mode":"wakeup"}
 {"mode":"quit"}
@@ -25,3 +27,5 @@ do
     gzip -c "$core_file" > "canary-wip/${core_file}.gz"
     aws s3 cp "canary-wip/${core_file}.gz" s3://gguthe-autograph-canary-dumps/
 done
+
+rm -rf /tmp/canary-wip
