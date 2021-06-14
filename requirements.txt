@@ -1,4 +1,3 @@
-awscli==1.19.94
 awslambdaric==1.0.0
 coloredlogs==15.0
 git+https://github.com/mozilla/tls-canary.git@autograph-canary-debug#egg=tlscanary

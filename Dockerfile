@@ -23,9 +23,18 @@ RUN mkdir -p ${FUNCTION_DIR}/tests ${FUNCTION_DIR}/firefox && \
     tar xvjf -
 
 ADD requirements.txt ${FUNCTION_DIR}
+ADD aws-cli.pub .
 
 # Install the function's dependencies
-RUN pip install --target ${FUNCTION_DIR} -r ${FUNCTION_DIR}/requirements.txt
+RUN pip install -U pip \
+    && pip install --target ${FUNCTION_DIR} -r ${FUNCTION_DIR}/requirements.txt \
+    && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+    && curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip.sig" -o "awscliv2.sig" \
+    && gpg --import ./aws-cli.pub \
+    && gpg --verify "awscliv2.sig" "awscliv2.zip" \
+    && unzip "awscliv2.zip" \
+    && ./aws/install --install-dir ${FUNCTION_DIR}/aws-cli --bin-dir ${FUNCTION_DIR} \
+    && ${FUNCTION_DIR}/aws --version
 
 # add function code
 ADD autograph.py ${FUNCTION_DIR}
