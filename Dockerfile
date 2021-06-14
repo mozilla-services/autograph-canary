@@ -54,8 +54,7 @@ ARG FUNCTION_DIR
 RUN apt-get update \
     && echo 'deb http://deb.debian.org/debian unstable main' > /etc/apt/sources.list.d/unstable.list \
     && apt update \
-    && apt-get install -y -t unstable firefox \
-    && apt-get install -y xxd
+    && apt-get install -y -t unstable firefox
 
 # Set working directory to function root directory
 WORKDIR ${FUNCTION_DIR}

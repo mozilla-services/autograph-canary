@@ -23,7 +23,5 @@ for core_file in $(ls -1 core*);
 do
     echo "$core_file"
     gzip -c "$core_file" > "canary-wip/${core_file}.gz"
-    xxd -p "canary-wip/${core_file}.gz" > "canary-wip/${core_file}.gz.hex"
-    ls -lh "${core_file}" "canary-wip/${core_file}.gz" "canary-wip/${core_file}.gz.hex"
-    curl -X POST -F "format=url" -F "content=<canary-wip/${core_file}.gz.hex" https://paste.mozilla.org/api/
+    aws s3 cp "canary-wip/${core_file}.gz" s3://gguthe-autograph-canary-dumps/
 done
