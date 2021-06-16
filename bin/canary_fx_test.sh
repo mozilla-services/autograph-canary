@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -v
+# set -v
 set -o pipefail
 
 df -h
@@ -25,7 +25,7 @@ for core_file in $(ls -1 core*);
 do
     echo "$core_file"
     gzip -c "$core_file" > "canary-wip/${core_file}.gz"
-    ./post_gist.sh "canary-wip/${core_file}.gz"
+    /function/bin/post_gist.sh "canary-wip/${core_file}.gz"
 done
 
 ls -lh /tmp/canary-wip
