@@ -3,6 +3,8 @@
 # set -v
 set -o pipefail
 
+printenv
+
 df -h
 
 mount
