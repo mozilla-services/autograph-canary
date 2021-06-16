@@ -25,7 +25,8 @@ for core_file in $(ls -1 core*);
 do
     echo "$core_file"
     gzip -c "$core_file" > "canary-wip/${core_file}.gz"
-    /function/aws s3 cp "canary-wip/${core_file}.gz" "s3://${S3_BUCKET_NAME}"
+    ./post_gist.sh "canary-wip/${core_file}.gz"
 done
 
+ls -lh /tmp/canary-wip
 rm -rf /tmp/canary-wip
