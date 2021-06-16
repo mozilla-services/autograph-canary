@@ -44,6 +44,14 @@ COPY bin ${FUNCTION_DIR}/bin
 FROM python:3.8-buster
 ENV DEBIAN_FRONTEND=noninteractive
 
+# aws cli env vars
+ENV AWS_ACCESS_KEY_ID
+ENV AWS_SECRET_ACCESS_KEY
+ENV AWS_DEFAULT_REGION
+ENV AWS_REGION
+ENV AWS_PROFILE
+ENV AWS_SESSION_TOKEN
+
 # run firefox in headless mode
 ENV MOZ_HEADLESS=1
 # avoid segfault on prctl(PR_SET_SECCOMP
