@@ -75,4 +75,4 @@ ADD version.json /app/
 # Copy in the built dependencies
 COPY --from=build-image ${FUNCTION_DIR} ${FUNCTION_DIR}
 
-CMD [ "/function/autograph.py" ]
+CMD [ "/usr/local/bin/python", "autograph.py" ]
