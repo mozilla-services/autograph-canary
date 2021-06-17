@@ -13,6 +13,8 @@ ldd /function/firefox/firefox/firefox
 
 sysctl kernel.core_pattern
 
+uname -a
+
 rm -f /tmp/core.firefox*
 
 /function/firefox/firefox/firefox -xpcshell -g /function/firefox/firefox/ -a /function/firefox/firefox/browser -f /function/tlscanary/js/worker_common.js /function/tests/content_signature_test.js <<EOF
