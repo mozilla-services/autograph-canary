@@ -54,7 +54,7 @@ ENV TEST_FILES_GLOB="*_test.js"
 ENV XPI_ENV="prod"
 ENV XPI_URLS="https://addons.mozilla.org/firefox/downloads/file/3772109/facebook_container-2.2.1-fx.xpi,https://addons.mozilla.org/firefox/downloads/file/3713375/firefox_multi_account_containers-7.3.0-fx.xpi,https://addons.mozilla.org/firefox/downloads/file/3768975/ublock_origin-1.35.2-an+fx.xpi"
 ENV CSIG_ENV="prod"
-ENV CSIG_COLLECTIONS="blocklists/gfx,blocklists/addons-bloomfilters,blocklists/plugins,blocklists/addons,blocklists/certificates,main/normandy-recipes,main/normandy-recipes-capabilities,main/hijack-blocklists,main/search-config,security-state/onecrl,security-state/intermediates"
+ENV CSIG_COLLECTIONS="security-state/onecrl"
 
 # Include global arg in this stage of the build
 ARG FUNCTION_DIR
