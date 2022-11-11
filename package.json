@@ -6,7 +6,7 @@
   "directories": {},
   "dependencies": {},
   "devDependencies": {
-    "mocha": "8.4.0",
+    "mocha": "10.1.0",
     "prettier": "2.3.0"
   },
   "scripts": {
