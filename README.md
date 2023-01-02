@@ -116,3 +116,4 @@ To run integration tests in the containerized AWS lambda emulator:
 1. Run `make emulator-shell` to log into the emulator container. In
    the container run `cp local/autograph.py . && python autograph.py`
    to run tests without rebuilding the container.
+test
